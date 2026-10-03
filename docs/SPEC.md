@@ -11,6 +11,8 @@ den isoliert geprüften Tresor-Kern und Migrationsempfänger, noch ohne
 produktive Verdrahtung. Schlüsselbund-Anschluss, Migration der bestehenden
 Stores, sichtbare Zustände und Startblockaden bleiben offen; das aktuelle
 Produktverhalten ändert sich dadurch nicht ([H2-Schritte](HOST_SECRETS_H2.md)).
+Am 4. Oktober ergänzt H2b den isoliert gemessenen nativen Linux-Schlüsselbund-
+Anschluss. H2c/H2d (Store-Migration, Oberfläche und Startblockaden) bleiben offen.
 
 - Ein ADE-Host pro Benutzer und Profil führt alle Agenten, Terminals, Runs,
   Secrets und die Tablet-Freigabe aus. Desktop und Tablet sind gleichwertige

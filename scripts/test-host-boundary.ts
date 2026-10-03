@@ -17,8 +17,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { importGraph } from './helpers/importGraph';
 
-/** Modules reached from the host entry on the last green run (H1a: 102, H1b: 133, H1c: 142, H1d: 145, H1f: 210, H1g: 213, H2a: 215). Raise, never lower. */
-const MIN_HOST_MODULES = 215;
+/** Modules reached from host + keyring worker (H1g: 213, H2a: 215, H2b: 219). Raise, never lower. */
+const MIN_HOST_MODULES = 219;
 const HOST_ENTRY = 'src/main/host/index.ts';
 const FORBIDDEN = ['electron'];
 /** Desktop-only modules: Electron-free at runtime by themselves, but the host reaches clients only through ports. */
@@ -32,7 +32,7 @@ const check = (label: string, ok: boolean, detail?: string) => {
 };
 const chainOf = (graph: ReturnType<typeof importGraph>, name: string) => graph.packages.get(name)?.join(' -> ');
 
-const host = importGraph([HOST_ENTRY]);
+const host = importGraph([HOST_ENTRY, 'src/main/host/secrets/keyringWorker.ts']);
 console.log(`host entry reaches ${host.modules.length} modules (minimum ${MIN_HOST_MODULES})`);
 for (const name of FORBIDDEN) {
   check(`host runtime graph does not reach "${name}"`, !host.packages.has(name), chainOf(host, name));

@@ -148,6 +148,7 @@ const STEPS: Step[] = [
     command: [NODE, bin('vite', 'vite'), 'build', '--config', 'vite.mobile.config.ts', '--outDir', join(BUILD_DIR, 'mobile'), '--emptyOutDir'] },
   driver('ollama-electron', 'test-ollama-electron.ts', windowsOnly('asserts the native Windows Ollama launch path')),
   driver('activation-linux', 'test-activation-linux.ts', { lane: 'solo', platforms: ['linux'], reason: 'native Linux activation uses /proc; Windows retains the PowerShell driver' }),
+  driver('linux-secret-service', 'test-linux-secret-service.ts', { platforms: ['linux'], reason: 'private D-Bus and GNOME Keyring integration measures native Linux; DPAPI and macOS are not measured' }),
   driver('speech-electron', 'test-speech-electron.ts'),
   driver('reply-speech-electron', 'test-reply-speech-electron.ts', WINDOWS_CONSOLE_FIXTURE),
   driver('dictation-electron:computer', 'test-dictation-electron.ts', { ...only('computer'), ...WINDOWS_CONSOLE_FIXTURE }),

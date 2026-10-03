@@ -1707,6 +1707,23 @@ the legacy-store sender, UI diagnostics and credential-dependent launch gating
 remain H2b–H2d. Detailed contract, measured evidence and boundaries:
 [HOST_SECRETS_H2](HOST_SECRETS_H2.md).
 
+**H2b Linux keyring adapter (4 October 2026).** The uncomposed core now has
+`LinuxWrappingKeyStore`, a bounded `keyringWorker.js` using pinned
+`@napi-rs/keyring` 2.1.0 with Secret Service selected explicitly, and
+`SecretVaultMonitor`. The profile-scoped entry uses a hash of the canonical
+profile path, never the path itself. Metadata checks cover locked and unlocked
+matches, the actual collection, ambiguous entries, service ownership and
+non-durable session collections. The GNOME protection diagnostic reads only
+the matching file header; unfamiliar providers/headers yield `unknown`.
+Native errors and inherited CLI credentials never leave the process boundary.
+Polling invalidates cached access on loss/change and retries with bounded
+backoff; credential-dependent launch paths must await `checkNow()` when H2c
+connects the stores. There is no production wiring yet. The import-graph check
+now includes the worker entry and has a 219-module floor. The main build also
+emits the worker and shared main chunks. Private D-Bus integration runs under
+Node and Electron RunAsNode; Windows, WSL deployment models, packaging and UI
+remain unmeasured here. Full contract and limits: [HOST_SECRETS_H2](HOST_SECRETS_H2.md).
+
 - **Ownership (E1).** One long-lived host per OS user and profile owns
   `PtyManager`, `CodexAppServerProcess`, orchestration, `RunCoordinator`, all
   stores, journal and retention, `HostLifecycle`/recovery, secrets, the host

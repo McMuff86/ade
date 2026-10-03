@@ -59,6 +59,7 @@ export class HostSecretVault {
   private diagnostic: VaultStatus = { state: 'unavailable', reason: 'not-initialized' };
   private pending: Promise<VaultStatus> | null = null;
   private closed = false;
+  private generation = 0;
   private readonly aad: Buffer;
 
   constructor(private readonly file: string, profileId: string, private readonly keyring: WrappingKeyStore) {
@@ -73,12 +74,18 @@ export class HostSecretVault {
     if (this.closed) return Promise.resolve(this.status());
     if (this.pending) return this.pending;
     this.clear(); this.diagnostic = { state: 'unavailable', reason: 'not-initialized' };
-    this.pending = this.initialize().finally(() => { this.pending = null; });
+    this.pending = this.initialize(++this.generation).finally(() => { this.pending = null; });
     return this.pending;
   }
 
   close(): void {
     this.closed = true; this.clear(); this.diagnostic = { state: 'unavailable', reason: 'closed' };
+  }
+
+  /** Called by the platform observer before retrying after a keyring change. */
+  invalidate(): void {
+    if (this.closed) return;
+    this.generation++; this.clear(); this.diagnostic = { state: 'unavailable', reason: 'keyring' };
   }
 
   get(id: string): string | null {
@@ -145,29 +152,30 @@ export class HostSecretVault {
     this.assertReady(); return structuredClone(this.data.migration);
   }
 
-  private async initialize(): Promise<VaultStatus> {
+  private async initialize(generation: number): Promise<VaultStatus> {
+    const stale = () => this.closed || generation !== this.generation;
     let reason: 'keyring' | 'key-missing' | 'key-invalid' | 'storage' = 'keyring';
     let candidate: Buffer | null = null;
     let created = false;
     try {
       const probe = await this.keyring.probe();
-      if (this.closed) return this.status();
+      if (stale()) return this.status();
       if (probe.state !== 'ready') { this.diagnostic = { state: probe.state }; return this.status(); }
       reason = 'storage'; const raw = readVaultFile(this.file);
       reason = 'keyring'; candidate = await this.keyring.read();
-      if (this.closed) return this.status();
+      if (stale()) return this.status();
       if (candidate === null) {
         if (raw !== null) { reason = 'key-missing'; throw new Error(); }
         // Probe again: a lock between the read and creation must not mean first use.
         const beforeCreate = await this.keyring.probe();
-        if (this.closed) return this.status();
+        if (stale()) return this.status();
         if (beforeCreate.state !== 'ready') { this.diagnostic = { state: beforeCreate.state }; return this.status(); }
         const generated = randomBytes(32);
         try { await this.keyring.create(generated); created = true; } finally { generated.fill(0); }
-        if (this.closed) return this.status();
+        if (stale()) return this.status();
         candidate = await this.keyring.read();
       }
-      if (this.closed) return this.status();
+      if (stale()) return this.status();
       reason = 'key-invalid';
       if (!Buffer.isBuffer(candidate) || candidate.length !== 32) throw new Error();
       reason = 'storage';
@@ -177,7 +185,7 @@ export class HostSecretVault {
       const state = raw === null ? empty() : this.decode(raw, candidate);
       // Recheck collection state after reads; no cached key survives a lock.
       reason = 'keyring'; const afterRead = await this.keyring.probe();
-      if (this.closed) return this.status();
+      if (stale()) return this.status();
       if (afterRead.state !== 'ready') { this.diagnostic = { state: afterRead.state }; return this.status(); }
       reason = 'storage';
       if (fingerprint(readVaultFile(this.file)) !== fingerprint(raw)) throw new Error();
@@ -187,7 +195,7 @@ export class HostSecretVault {
     } catch {
       // Native provider errors can contain credentials; never retain or log them.
       this.clear();
-      if (!this.closed) this.diagnostic = { state: 'unavailable', reason };
+      if (!stale()) this.diagnostic = { state: 'unavailable', reason };
     } finally { candidate?.fill(0); }
     return this.status();
   }

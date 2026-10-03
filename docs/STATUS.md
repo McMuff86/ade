@@ -8,6 +8,19 @@ und weitere native Adapterabnahmen offen. Übersicht je Teilziel:
 [ROADMAP](ROADMAP.md#aktueller-stand-1-oktober-2026-abends). Abschnitte unten
 sind datiert; ältere Abschnitte nennen den damaligen Stand.
 
+## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)
+
+H2a als `61322f3` committet; H2b ergänzt den nativen Secret-Service-Anschluss
+und begrenzten Kindprozess, GNOME-Protektion, Sperr-/Dienst-/Schlüsselwechsel
+und Retry. Private GNOME-/D-Bus-Integration unter Node und Electron-Node-Modus;
+keine Tests am persönlichen Schlüsselbund. **Weiterhin ohne produktive
+Verdrahtung**: H2c Store-Migration/Konsumenten und H2d Oberfläche/Startblockaden
+sind offen. Windows, WSL-Modelle, macOS und Packaging nicht gemessen.
+Grenzprüfung **219 Module**; neuer Prozess-/Monitor-Vertrag **21 Checks**.
+Native Integration **42/0**; finales `pnpm verify` am 4. Oktober:
+**31/0/16 nicht gemessen**, **114 Suiten / 4.735 Checks**.
+Aktuelle Abnahme: [HANDOFF](HANDOFF.md); Vertrag: [HOST_SECRETS_H2](HOST_SECRETS_H2.md).
+
 ## Goal 34.6 H2a: isolierter Secrets-Tresor-Kern (3. Oktober 2026)
 
 H0/H1 abgeschlossen; H2 begonnen. `HostSecretVault` implementiert AES-256-GCM,

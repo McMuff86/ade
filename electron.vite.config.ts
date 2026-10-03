@@ -8,6 +8,7 @@ const buildDefine = { __ADE_BUILD_INFO__: JSON.stringify(buildIdentity()) };
 
 export default defineConfig({
   main: {
+    build: { rollupOptions: { input: { index: 'src/main/index.ts', keyringWorker: 'src/main/host/secrets/keyringWorker.ts' } } },
     define: buildDefine,
     plugins: [externalizeDepsPlugin(), { name: 'ade-tray-icon', generateBundle() {
       this.emitFile({ type: 'asset', fileName: 'tray.png', source: readFileSync('agentic_coding_environment_icon.png') });

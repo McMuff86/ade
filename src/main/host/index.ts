@@ -15,6 +15,8 @@ export type * from './ports';
 export { composeHost, type Host } from './composeHost';
 export { configPath, photosDir, profilePaths } from './profilePaths';
 export { HostSecretVault } from './secrets/HostSecretVault';
+export { LinuxWrappingKeyStore, secretProfileId } from './secrets/LinuxWrappingKeyStore';
+export { SecretVaultMonitor } from './secrets/SecretVaultMonitor';
 export { AdeApplicationService, JournalChangeHub } from '../application/AdeApplicationService';
 export { HostOperationGate } from '../application/HostOperationGate';
 export { HostRestartController } from '../application/HostRestartController';

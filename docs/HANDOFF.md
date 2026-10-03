@@ -3,6 +3,65 @@
 Neuer Kontext für Goal 34.6: zuerst [Kontexthandoff 3. Oktober](CONTEXT_HANDOFF_2026-10-03.md)
 lesen (Haltepunkt, offene Benutzerentscheide, Code-Landkarte H1, Stolpersteine).
 
+## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)
+
+Auf Benutzerauftrag H2a als **`61322f3`** committet und mit den Goals
+selbstständig fortgesetzt. H2b implementiert den profilgebundenen Secret-
+Service-Anschluss, einen begrenzten nativen Kindprozess und Polling/Retry.
+Details und Grenzen: [HOST_SECRETS_H2](HOST_SECRETS_H2.md).
+
+- `LinuxWrappingKeyStore.ts`: Hash des kanonischen Profilpfads, private
+  Prozess-Pipes, reduzierte Umgebung, Zeit-/Ausgabelimits, Abbruch.
+- `linuxSecretService.ts` / `keyringWorker.ts`: `@napi-rs/keyring` **2.1.0**,
+  explizit Secret Service, Metadaten über `busctl`, tatsächliche Sammlung und
+  beide Suchmengen (locked/unlocked), Mehrdeutigkeit verweigert, Read-back.
+  GNOME-Protektion aus 16 Header-Bytes; sonst `unknown`.
+- `SecretVaultMonitor.ts`: gesund 2-s-Polling, Ausfall-Backoff bis 30 s,
+  Cache-Invalidierung bei Dienst-, Schlüssel- oder Protektionswechsel.
+  Erkennung ist intervallgebunden; credentialabhängige Launchpfade müssen
+  später `checkNow()` abwarten. Keine produktive Verdrahtung in H2b.
+- `electron.vite.config.ts` emittiert zusätzlich `main/keyringWorker.js` und
+  gemeinsame Chunks in `main/chunks/`. `package.json`/Lockfile enthalten das
+  native Paket und ein vorbereitetes asar-Unpack-Muster; Packaging ist noch
+  nicht gemessen. Die Host-Grenze prüft beide Einstiegspunkte: **219 Module**.
+- Tests: `linux-keyring-boundary` **21/0** und weiterhin `host-secret-vault`
+  **59/0**. Neuer Linux-Verify-Treiber `linux-secret-service` misst private
+  D-Bus-/GNOME-Fixtures unter Node und Electron RunAsNode. Voraussetzungen
+  für diesen Treiber: `dbus-daemon`, `busctl`, `gnome-keyring-daemon`, Python
+  mit `dbus`-Modul. Fehlende Linux-Voraussetzungen lassen ihn fehlschlagen;
+  andere Plattformen sind in `verify.ts` explizit *nicht gemessen*.
+
+Die ersten realen Proben scheiterten an der unterschiedlichen JSON-Form von
+`busctl call` und `get-property`, der Headerlänge und dem Fixture-Entsperren.
+Diese Test-/Parserfehler sind behoben; sie zählen nicht als erfolgreiche
+Negativkontrollen. GNOME-Testmethoden zum Entsperren/Passwortändern laufen nur
+am privaten Bus. Der letzte Schutz ergänzt die Erkennung eines ersetzten
+Schlüssels im selben OS-Eintrag unabhängig von der Sekundenauflösung von
+`Modified`. Die native Integration besteht **42/0**; der Prozess-/Monitor-
+Vertrag **21/0**. Finales `MISE_PNPM_VERSION=9.15.9 pnpm verify` am 4. Oktober,
+**01:45–01:48 CEST**: **31 bestanden / 0 Fehler / 16 nicht gemessen** (Windows),
+**114 Suiten / 4.735 Checks**, 3 min 34 s. Alle drei TypeScript-Projekte,
+beide Builds, der native Treiber und die unter Linux gemessenen Electron-/
+Browser-Flows grün; Aktivierung/Rollback **21/0**, visuell **22/0**.
+Bericht: `test-results/verify/report.json`. Gemessene Umgebung: Node 26.8.2,
+Electron 43.1.0, GNOME Keyring 50.0, natives Linux.
+
+Im vollständigen Zwischenlauf scheiterte ausserdem ein bestehender
+Modellwahl-Check (`electron-workflow`, 203/1): der gespeicherte Wert war schon
+sichtbar, während die erste Katalogabfrage noch laufen konnte. Der Treiber
+`scripts/helpers/modelPickerFlow.ts` wartet jetzt vor dem Entfernen des Modells
+und dem Refresh auf das bestätigte Fixture-Modell sowie den aktivierten
+Refresh-Button. Die Aussage des Checks bleibt unverändert. Gezielte
+Wiederholung über `pnpm verify --only electron-workflow --reuse-build`:
+**204/0**, im finalen Gesamtlauf ebenfalls **204/0**. Separater Commit
+**`99d351b`**; kein Produktcode des Modellwählers geändert.
+
+Kein persönlicher Schlüsselbund, keine persönliche Unit und kein `out/`
+verändert; kein Push, keine persönliche Aktivierung. H2c ist als Nächstes
+offen: Decoder/Manifest der drei Altstores und Konsumenten auf den Tresor
+umstellen, danach H2d UI/Startblockaden. H3–H7 und der benutzerabhängige
+Reboot-Nachweis bleiben offen.
+
 ## Goal 34.6 H2a: Tresor-Kern und Migrationsempfänger (3. Oktober 2026, spät abends)
 
 Der Benutzer hat die Fortsetzung beauftragt und ausdrücklich bestätigt:

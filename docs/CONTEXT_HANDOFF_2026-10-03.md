@@ -7,6 +7,12 @@ unten sind Momentaufnahmen.
 
 ## Haltepunkt
 
+**Aktueller Stand 4. Oktober:** H2a auf Benutzerauftrag als `61322f3`
+committet. H2b (nativer Linux-Schlüsselbund, begrenzter Kindprozess,
+Polling/Retry, private D-Bus-/Electron-Nachweise) implementiert. Nächster
+Schritt H2c, dann H2d. Verbindliche neueste Abnahme und Betriebszustand:
+[HANDOFF](HANDOFF.md); technischer Vertrag [HOST_SECRETS_H2](HOST_SECRETS_H2.md).
+
 **Fortsetzung am 3. Oktober, spät abends:** Der Benutzer hat Goal 34.6
 fortzusetzen beauftragt und ausdrücklich erklärt: „du bist nun selbstständig
 ohne orchestrator“. Die frühere Orchestrator-Abstimmung unten ist damit
