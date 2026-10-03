@@ -5,8 +5,8 @@
 Bis zur Umsetzung gilt unverändert: Der Electron-Desktop ist der einzige
 Ausführungshost, und „ADE beenden“ beendet alle Sitzungen. Beschlossenes Ziel
 (Begründung und Etappen: [HOST_ARCHITECTURE_DECISION](HOST_ARCHITECTURE_DECISION.md);
-technischer Vertrag: ARCHITECTURE, „Decision: independent ADE host“). Vor dem
-Beginn wird der Entscheid extern geprüft.
+technischer Vertrag: ARCHITECTURE, „Decision: independent ADE host“). Am
+3. Oktober extern geprüft; Spike H0 ist freigegeben.
 
 - Ein ADE-Host pro Benutzer und Profil führt alle Agenten, Terminals, Runs,
   Secrets und die Tablet-Freigabe aus. Desktop und Tablet sind gleichwertige
@@ -19,6 +19,9 @@ Beginn wird der Entscheid extern geprüft.
   Wiederverbinden zeigt ADE dieselbe Sitzung mit fortlaufender Ausgabe.
   Host-Absturz, Host-Update, Abmelden und Neustart beenden die Prozesse; der
   Run- und Journalzustand bleibt erhalten.
+- Die ADE-Betreuung (Goal 26/33) mit ihren Erinnerungen, Folgeaufträgen und
+  offenen Rückfragen läuft im Host weiter, auch wenn kein Desktopfenster offen
+  ist; Rückfragen sind über Desktop oder Tablet beantwortbar.
 - Nach einem Host-Ende nennt ADE die Ursache und bietet nur ausdrücklich
   „Gespräch fortsetzen (neuer Prozess)“ an, wenn der Agent eine eigene
   Sitzungs-ID gemeldet hat. Nichts wird automatisch fortgesetzt oder wiederholt.
@@ -28,8 +31,9 @@ Beginn wird der Entscheid extern geprüft.
 - An einem Terminal können Desktop und Tablet gleichzeitig zuschauen; tippen
   darf genau einer, und eine Übernahme ist ausdrücklich und sichtbar.
 - Ist der Schlüsselbund gesperrt, zeigt ADE auf Desktop und Tablet „Zugangsdaten
-  gesperrt“ und startet keine Arbeit, die Zugangsdaten braucht. Zugangsdaten
-  liegen nie im Klartext.
+  gesperrt“ und startet keine Arbeit, die Zugangsdaten braucht. Fehlt der
+  Schlüsselbund ganz, zeigt ADE „Zugangsdaten nicht verfügbar“ mit dem Grund.
+  Zugangsdaten liegen nie im Klartext.
 - Updates warten, bis keine Arbeit läuft, und starten Host und Desktop
   gemeinsam neu; Rollback betrifft beide. Eine Desktopversion, die nicht zum
   Host passt, meldet das verständlich, statt teilweise zu funktionieren.

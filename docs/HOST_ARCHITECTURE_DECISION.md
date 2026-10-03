@@ -5,9 +5,9 @@ Empfehlungen in Abschnitt 6. Übernommen in [ARCHITECTURE](ARCHITECTURE.md)
 („Decision: independent ADE host“) und [SPEC](SPEC.md) („Unabhängiger
 ADE-Host“). Die bisherigen Abschnitte (siehe Abschnitt 7) tragen dort einen
 Zielhinweis und beschreiben bis zur Umsetzung weiterhin das ausgelieferte
-Verhalten. **Nicht umgesetzt.** Vor dem Spike H0 wird der Entscheid extern
-geprüft; Änderungen aus dem Review fliessen in dieses Dokument und in
-ARCHITECTURE/SPEC zurück. Bezug: [Goal 34.6](AGENT_SESSION_PRODUCT_GOALS.md#goal-346--arbeit-läuft-in-einem-unabhängigen-ade-host).
+Verhalten. **Nicht umgesetzt.** **Extern geprüft am 3. Oktober 2026; H0
+freigegeben** (Review durch die Orchestrator-Session, Abschnitt 10; R1–R8
+angenommen und eingearbeitet, R9 abgelehnt). Bezug: [Goal 34.6](AGENT_SESSION_PRODUCT_GOALS.md#goal-346--arbeit-läuft-in-einem-unabhängigen-ade-host).
 
 Grundlage sind drei Untersuchungen vom 3. Oktober: eine Bestandsaufnahme der
 Electron-Abhängigkeiten in `src/main`, eine Quellanalyse von herdr 0.8.2
@@ -31,6 +31,7 @@ Orchestrierung, Journal, Secrets und die Host-API. Desktop und Tablet sind Clien
 | Renderer-Reload | läuft weiter (schon heute) | erhalten | Replay-Puffer |
 | Desktop schliessen, abstürzen, neu starten | **läuft weiter (neu)** | erhalten | Anhängen + Replay |
 | Tablet getrennt | läuft weiter | erhalten | Anhängen |
+| ADE-Betreuung (Goal 26/33) bei geschlossenem Desktop | läuft im Host weiter | erhalten | Anhängen; Rückfragen über Desktop oder Tablet |
 | Host-Absturz oder Host-Update | beendet | erhalten (Journal) | nur natives Resume, ausdrücklich |
 | Abmelden | beendet (ohne Linger) | erhalten | nur natives Resume |
 | Neustart, Stromausfall | beendet | erhalten | nur natives Resume |
@@ -121,6 +122,16 @@ Die Bindung „Desktop ist autoritativ“ (`ARCHITECTURE.md:1628`) wird ersetzt 
 **„Host ist autoritativ; Desktop und Tablet sind Clients“**. Die Bindung „Mobile
 ist eine Steuerung, keine Ausführungsebene“ bleibt.
 
+**Langlebige Betreuung als Konsument (R8):** Die ADE-eigene Betreuung
+(Goal 26/33: `SupervisionService`, `CoordinatorConversation`, Organizer) muss
+den Desktop überleben und läuft deshalb im Host. Ihre Zeitgeber, Folgeaufträge
+und offenen Rückfragen hängen nicht an einem offenen Fenster. Externe
+Aufsichts-Sitzungen (etwa eine Orchestrator-Session ausserhalb von ADE) erhalten
+**nicht** den Prinzipal `desktop-local`. Ihr Zugang wäre ein eigener, begrenzter
+Prinzipal mit Audit und ist ein gesonderter späterer Vertrag; Anforderungen dazu
+sammelt `docs/research/agent-orchestration/STANDING_SUPERVISOR_2026-10-03.md`
+(vom Orchestrator verfasst).
+
 ### E2 — Laufzeit: Electron-Binary im Node-Modus, Host-Code ohne Electron
 
 Der Host ist ein eigener Einstiegspunkt (`out/host/index.js`). Er wird mit
@@ -190,6 +201,11 @@ Benutzer-Tokens, DPAPI-Profile und WSL laufen pro Benutzer.
   bleibt, schützt aber nur noch das UI (ein Desktopfenster pro Profil).
 - `HostLifecycle` wechselt in den Host: Ein Absturz oder Neustart des Desktops ist
   kein Ende des Profilbesitzers mehr.
+- **Selbstheilung nach SIGKILL (R6):** Die `flock`-Sperre fällt mit dem Prozess;
+  die `O_EXCL`-Sperre im `ConfigStore` erkennt den toten Besitzer über Boot-ID
+  und Prozessstart (`staleOwner`, `config/store.ts:894`). Nach einem SIGKILL
+  startet der von systemd neu gestartete Host ohne manuellen Eingriff. Beide
+  Mechanismen müssen das gemeinsam nachweisen (Negativkontrolle H3).
 
 **Ablauf beim Desktopstart:**
 
@@ -204,11 +220,14 @@ Benutzer-Tokens, DPAPI-Profile und WSL laufen pro Benutzer.
 
 - **Linux:** `$XDG_RUNTIME_DIR/ade/<profil-hash>.sock`, Verzeichnis 0700 und
   Socket 0600 (Verzeichnisrechte schliessen das Fenster zwischen `bind` und
-  `chmod`). Zusätzlich prüft der Host die Peer-UID über `SO_PEERCRED`; dafür
-  braucht es einen kleinen nativen Helfer, Node bietet das nicht an (*ungeprüft*).
+  `chmod`). Der Kernel erzwingt damit die UID bereits: `$XDG_RUNTIME_DIR` und
+  das 0700-Verzeichnis sind nur für den Benutzer durchsuchbar. Eine
+  Peer-UID-Prüfung über `SO_PEERCRED` ist deshalb **optional** und kein
+  Bestandteil von H0/H3 (R4). Der Host prüft beim Start Besitzer und Rechte des
+  Verzeichnisses und verweigert den Start bei Abweichung.
 - **Windows:** Named Pipe `\\.\pipe\ade-host-<hash(SID+profil)>` mit expliziter
   DACL nur für die Benutzer-SID, über einen nativen Helfer, weil libuv keine DACL
-  setzt.
+  setzt. Das ist der einzige native Transport-Helfer; er gehört zu H7.
 - **Zweiter Faktor auf beiden Plattformen:** ein zufälliges Token pro Hoststart in
   einer Datei, die nur der Benutzer lesen kann. Das Token allein reicht nie (kein
   Syncthing-Muster).
@@ -297,8 +316,27 @@ gesperrt. Der Host meldet dann einen sichtbaren Zustand an Desktop und Tablet,
 blockiert Starts, die Zugangsdaten brauchen, und versucht es erneut, sobald die
 Sammlung entsperrt ist. Deshalb ist Linger standardmässig aus.
 
-Auf diesem Rechner läuft `gnome-keyring-daemon` (`--components=pkcs11,secrets`).
-Ob der PAM-Stack ihn bei der Anmeldung entsperrt, ist *ungeprüft*.
+**Zustand `secrets: unavailable` (R5):** Gibt es keinen Secret Service (kein
+Dienst auf dem Session-Bus, keine Sammlung oder ein nicht unterstütztes
+Backend), meldet der Host diesen eigenen Zustand mit Diagnose, also welche
+Prüfung fehlschlug. Das ist keine stille Degradierung und nie ein
+Klartext-Rückfall. Arbeit ohne Zugangsdaten bleibt möglich; Starts mit
+Zugangsdaten sind blockiert, bis der Benutzer den Schlüsselbund einrichtet.
+
+**Befund auf diesem Rechner (3. Oktober, nur gelesen):**
+- SDDM-Autologin (`/etc/sddm.conf.d/autologin.conf`) mit `pam_permit`. Es gibt
+  also kein Anmeldepasswort, das den Schlüsselbund entsperren könnte;
+  `pam_gnome_keyring` startet den Daemon (`auto_start`).
+- `gnome-keyring-daemon` läuft mit `--components=pkcs11,secrets`. Beide
+  Sammlungen (`session`, `Default_keyring`) melden `Locked=false`.
+- Der Daemon startete 10 s vor `default.target` der Benutzersitzung.
+- Die heutige Desktop-App nutzt `gnome_libsecret` erfolgreich. Der Fall „PAM
+  entsperrt nicht“ tritt hier praktisch nicht auf, weil der Schlüsselbund ohne
+  Passwort entsperrt ist. Das ist bestehender Zustand, keine neue Schwäche.
+- Weiterhin *ungeprüft*: ob eine systemd-User-Unit beim Booten **vor** dem
+  Daemon bzw. vor dem Entsperren startet (Wettlauf), und wie sich ein
+  Schlüsselbund mit Passwort ohne Autologin verhält. Das ist das **erste
+  Experiment in H0**.
 
 ### E9 — Versionen, Updates, Aktivierung
 
@@ -313,6 +351,19 @@ Ob der PAM-Stack ihn bei der Anmeldung entsperrt, ist *ungeprüft*.
 - **`pnpm activate`** bleibt der einzige Weg zur persönlichen Instanz. Gate und
   Profil-Backup bleiben. Host und Desktop werden **gemeinsam** über
   `out/` / `out.prev` getauscht und zurückgerollt.
+- **Keine gemischten Builds (R1):** Heute beendet die Aktivierung den Besitzer,
+  bevor sie `out/` per `rename` tauscht (`linuxActivation.ts:136-145`). Mit dem
+  Host reicht das nicht als einzige Sicherung: Der Host liefert `out/mobile`
+  aus und könnte Module nachladen, und ein Desktop kann schon in der neuen
+  Version laufen, während der alte Host noch arbeitet. Deshalb:
+  - Der Host läuft aus einem **buildspezifischen Verzeichnis**
+    (`builds/<buildId>/`, auf das `out` nur verweist). Ein Tausch ändert nie
+    Dateien unter einem laufenden Host.
+  - Der Host lädt seine Module beim Start vollständig. Vor jedem späteren
+    Laden einer Datei aus dem Build prüft er seine Build-ID und meldet
+    andernfalls „veraltet“.
+  - Negativkontrolle H3: Build tauschen, während der Host läuft. Der Host
+    arbeitet fehlerfrei weiter oder meldet „veraltet“, aber nie gemischt.
 - **Journal-Migrationen** gehen nur vorwärts. Vorher wird ein Archiv geschrieben.
   Ein älterer Host lehnt ein neueres Schema ab, statt es zu überschreiben.
 - **Live-Übergabe ohne PTY-Verlust** (herdr-artig per `SCM_RIGHTS`, oder ein
@@ -364,7 +415,8 @@ Die Lebenszyklus-Klassifikation aus 34.3 bezieht sich dann auf den Host.
 ## 5. Was wir gegenüber herdr besser machen
 
 1. Eine Sperre vom Betriebssystem plus Epoch statt einer Verbindungsprobe.
-2. Ein Socket in `$XDG_RUNTIME_DIR` mit 0700-Verzeichnis und Peer-Prüfung.
+2. Ein Socket in `$XDG_RUNTIME_DIR` mit 0700-Verzeichnis, dessen Rechte der Host
+   beim Start prüft (Peer-Prüfung unter Linux optional).
 3. Agent-Prozesse erhalten keine Steuerung über andere Sitzungen.
 4. Versionstoleranz N-1 statt exakter Übereinstimmung.
 5. Ein fsync-Journal mit Archiv statt eines entprellten Schnappschusses.
@@ -397,14 +449,19 @@ bleiben zur Nachvollziehbarkeit stehen:
 5. **Desktop-Proxy oder direkter Socket im Renderer.** *Empfehlung:* Proxy über
    Main (E6). Das erhält Sandbox, Context Isolation und die geprüfte IPC-Richtlinie.
 
-Technische Fragen, die der Spike H0 beantwortet:
+Technische Fragen, die der Spike H0 beantwortet (Reihenfolge nach dem Review):
 
-- Secret-Service-Zugriff aus der systemd-User-Unit und das Entsperrverhalten
-  unter Omarchy
-- `SO_PEERCRED` bzw. Pipe-DACL über einen nativen Helfer
-- Wahl der Bildbibliothek
-- ob node-pty unter `ELECTRON_RUN_AS_NODE` mit dem gepackten asar-unpacked-Modul
-  lädt
+1. **Zuerst (R5):** Secret-Service-Zugriff aus einer systemd-User-Unit beim
+   Booten: Wettlauf mit dem Start des Keyring-Daemons und dem Entsperren,
+   Zustände `locked` und `unavailable` gemessen.
+2. Ob node-pty unter `ELECTRON_RUN_AS_NODE` mit dem gepackten asar-unpacked-Modul
+   lädt.
+3. Wahl der Bildbibliothek.
+4. Latenz-Basis (R3): heutige Zeit vom Tastendruck bis zum Echo auf dem
+   Linux-Desktop als p95-Wert, damit H4 einen Vergleich hat.
+
+Nicht mehr in H0: `SO_PEERCRED` (unter Linux optional, R4); die Pipe-DACL gehört
+zu H7.
 
 ## 7. Folgen für bestehende Verträge
 
@@ -430,12 +487,12 @@ persönlicher Aktivierung über `pnpm activate`. Die Aufwände sind grobe Schät
 
 | Etappe | Inhalt | Nachweis / Negativkontrolle | Aufwand |
 |---|---|---|---|
-| **H0 Spike** | Host-Einstieg unter `ELECTRON_RUN_AS_NODE` mit node-pty, Secret Service aus der User-Unit, Peer-UID, Bildbibliothek | Wegwerf-Messprotokoll; keine Produktbehauptung | 2–3 Tage |
-| **H1 Composition Root trennen** | `ipc.ts` aufteilen in `hostComposer` (ohne Electron) und Desktop-Adapter; Ports für Bild, Power, Benachrichtigung; `clientId` statt `sender.id`; noch im selben Prozess | Import-Graph-Prüfung „Host ohne Electron“ schlägt mit absichtlichem Import fehl; bestehende Suiten grün | ~1 Woche |
+| **H0 Spike** | **Zuerst** Secret Service aus der User-Unit beim Booten (R5); danach Host-Einstieg unter `ELECTRON_RUN_AS_NODE` mit node-pty, Bildbibliothek, Latenz-Basis p95 (R3) | Wegwerf-Messprotokoll; keine Produktbehauptung; Ergebnis zu `locked`/`unavailable` dokumentiert | 2–3 Tage |
+| **H1 Composition Root trennen** | `ipc.ts` aufteilen in `hostComposer` (ohne Electron) und Desktop-Adapter; Ports für Bild, Power, Benachrichtigung; `clientId` statt `sender.id`; noch im selben Prozess. **Während H1 gehört `src/main/ipc.ts` exklusiv dieser Etappe** (kurzer Freeze für parallele IPC-Arbeit, R7) | Import-Graph-Prüfung „Host ohne Electron“ schlägt mit absichtlichem Import fehl; bestehende Suiten grün | ~1 Woche |
 | **H2 Secrets-Tresor** | Wrapping-Key im Schlüsselbund, AES-GCM-Store, Migration mit Bestätigung, Zustand `secrets: locked` | Migration bricht in der Mitte ab → alte Daten intakt; gesperrter Schlüsselbund → Start mit Zugangsdaten blockiert | 1–2 Wochen |
-| **H3 Host-Prozess** | `out/host`, `flock` + Epoch, lokaler Socket mit Token, generischer Kanal-Tunnel, Ereignisstrom, Desktop als Proxy, systemd-Unit | Doppelstart → zweiter Host beendet sich; fremde UID bzw. fehlendes Token → abgelehnt; Schreiben mit alter Epoch → abgelehnt | 2–3 Wochen |
-| **H4 PTY-Strom** | Anhängen und Replay über den Socket, Beobachter plus genau ein Schreiber | **Desktop beenden und neu starten bei laufender Codex-Aufgabe: dieselbe Sitzung, Ausgabe fortlaufend** (Kernabnahme 34.6) | 1–2 Wochen |
-| **H5 Tablet und Aktivierung im Host** | Host-API, Tailscale, Push, PWA im Host; `pnpm activate` über die Leerlaufabfrage des Hosts; gemeinsamer Rollback | Tablet bleibt beim Schliessen des Desktops verbunden; Versionskonflikt → typisierter Fehler; Rollback auf `out.prev` | ~1 Woche |
+| **H3 Host-Prozess** | `out/host` aus buildspezifischem Verzeichnis, `flock` + Epoch, lokaler Socket mit Token, generischer Kanal-Tunnel, Ereignisstrom, Desktop als Proxy, systemd-Unit | Doppelstart → zweiter Host beendet sich; falsche Verzeichnisrechte bzw. fehlendes Token → abgelehnt; Schreiben mit alter Epoch → abgelehnt; **Build tauschen bei laufendem Host → arbeitet weiter oder meldet „veraltet“, nie gemischt (R1)**; **SIGKILL des Hosts → systemd startet neu, Host startet ohne manuellen Eingriff (R6)** | 2–3 Wochen |
+| **H4 PTY-Strom** | Anhängen und Replay über den Socket, Beobachter plus genau ein Schreiber | **Desktop beenden und neu starten bei laufender Codex-Aufgabe: dieselbe Sitzung, Ausgabe fortlaufend** (Kernabnahme 34.6); **p95 Tastendruck → Echo höchstens H0-Basis + 5 ms (R3)**; beschleunigter Dauertest in `pnpm verify` (wiederholtes Anhängen/Trennen, RSS und Ringgrössen begrenzt, R2) | 1–2 Wochen |
+| **H5 Tablet und Aktivierung im Host** | Host-API, Tailscale, Push, PWA im Host; `pnpm activate` über die Leerlaufabfrage des Hosts; gemeinsamer Rollback | Tablet bleibt beim Schliessen des Desktops verbunden; Versionskonflikt → typisierter Fehler; Rollback auf `out.prev`; **24-h-Dauertest mit Desktop- und Tablet-Clients, wiederholtem Anhängen/Trennen und fester RSS-Obergrenze als Abnahme ausserhalb von `pnpm verify` (R2)** | ~1 Woche |
 | **H6 Recovery** | Native IDs beim Start, „Gespräch fortsetzen (neuer Prozess)“, Lebenszyklus auf den Host bezogen | SIGKILL des Hosts → Ursache korrekt, kein automatisches Resume; Resume mit falschem cwd → abgelehnt | ~1 Woche |
 | **H7 Windows** | Aufgabenplanung, Named Pipe mit DACL, Job-Objekte, ConPTY-Aufräumen, WSL-Prozessgruppen | dieselben Abnahmen nativ unter Windows | 2–3 Wochen |
 
@@ -464,3 +521,22 @@ Doppelstart und Rollback brauchen ausführbare Negativkontrollen.
 - **Session-0-Isolation:**
   <https://www.firedaemon.com/post/microsoft-windows-interactive-services-and-session-0-isolation>
 - **Claude Code Sessions:** <https://code.claude.com/docs/en/sessions>
+
+## 10. Externer Review (3. Oktober 2026)
+
+Geprüft durch die Orchestrator-Session „ade-orchestrator“ im Auftrag des
+Benutzers, auf Grundlage dieses Plans und von Code-Stichproben (kein Prototyp).
+Gesamturteil: Entscheid tragfähig, keine Blocker für H0. Jeder Punkt wurde vor
+der Annahme gegen Code bzw. Systemzustand geprüft.
+
+| Nr. | Schwere | Befund | Entscheidung | Begründung / Einarbeitung |
+|---|---|---|---|---|
+| R1 | hoch | `out/` wird per `rename` getauscht; ein laufender alter Host könnte Dateien aus dem neuen Build laden | **angenommen** | Heute kein Fehler: Die Aktivierung beendet den Besitzer vor dem Tausch (`linuxActivation.ts:136-145`), und `out/main/index.js` ist ein einzelnes Bundle. Mit dem Host wird das Risiko aber real, weil er `out/mobile` ausliefert und Desktop und Host unterschiedlich lange laufen. E9: buildspezifisches Verzeichnis, vollständiges Laden beim Start, Build-ID-Prüfung; Negativkontrolle H3. |
+| R2 | hoch | Leaks waren durch tägliche Desktop-Neustarts verdeckt | **angenommen, präzisiert** | Ein 24-h-Lauf passt nicht in `pnpm verify`. Deshalb zweistufig: beschleunigter Dauertest mit begrenztem RSS und begrenzten Ringgrössen in `pnpm verify` (H4) und ein 24-h-Dauertest als Abnahme ausserhalb von verify (H5). |
+| R3 | mittel | Zusätzlicher Hop Renderer → Main → Socket → Host | **angenommen, präzisiert** | `TERMINAL_LATENCY_RESULTS.md` misst vor allem den Tablet-Pfad; für den lokalen Linux-Desktop fehlt eine p95-Basis. Diese wird in H0 gemessen. Kriterium in H4: p95 höchstens Basis + 5 ms (ein lokaler Socket-Hop liegt erwartbar im Sub-Millisekunden-Bereich, *ungeprüft*). |
+| R4 | mittel | `SO_PEERCRED` bringt unter Linux wenig gegenüber dem 0700-Verzeichnis | **angenommen** | Zutreffend: Der Kernel prüft die Verzeichnisrechte beim `connect`, und gegen root schützt auch `SO_PEERCRED` nicht. E5: unter Linux optional, stattdessen Prüfung von Besitzer und Rechten beim Start; native Helfer nur für die Windows-DACL (H7). H0 wird kleiner. |
+| R5 | hoch | Wenn PAM den Schlüsselbund nicht entsperrt, wirkt 34.6 wie ein Rückschritt | **angenommen** | Befund dieses Rechners in E8 dokumentiert: Autologin, beide Sammlungen entsperrt. Offen bleibt der Wettlauf beim Booten. Er ist das erste H0-Experiment. Neuer Zustand `secrets: unavailable` mit Diagnose, ohne stille Degradierung und ohne Klartext. |
+| R6 | niedrig | Zwei Sperrmechanismen; Selbstheilung nach SIGKILL nachweisen | **angenommen** | E4 ergänzt; Negativkontrolle H3: SIGKILL → systemd-Neustart → Start ohne manuellen Eingriff. |
+| R7 | mittel | Aufteilen von `ipc.ts:217-704` kollidiert mit paralleler IPC-Arbeit | **angenommen** | H1 erhält exklusiven Besitz von `src/main/ipc.ts` (kurzer Freeze). Ob H1 parallel zu H0 beginnt, entscheidet der Benutzer beim Start. |
+| R8 | mittel | Fehlender Konsument: langlebige Betreuung braucht den Host | **angenommen, präzisiert** | E1 und Tabelle in Abschnitt 1 ergänzt: Die ADE-eigene Betreuung (Goal 26/33) läuft im Host. Externe Aufsichts-Sessions erhalten bewusst **nicht** `desktop-local`; ein begrenzter Prinzipal für sie ist ein gesonderter Vertrag. |
+| R9 | niedrig | SPEC sei englisch, der neue Abschnitt deutsch | **abgelehnt** | Die Prämisse trifft nicht zu: SPEC ist bereits zweisprachig. Die neueren Produktabschnitte oben sind deutsch (etwa „Persönliche Tasks und Notes“, „Zentraler ADE-Agent“), die älteren Grundabschnitte englisch. Eine Übersetzung würde die bestehende Konvention brechen. Stattdessen benennt `docs/README.md` sie jetzt ausdrücklich: ARCHITECTURE englisch, neue SPEC-Produktabschnitte sowie Plan-, Entscheid- und Betriebsnotizen deutsch. |

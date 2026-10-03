@@ -25,6 +25,11 @@ Stand: 2026-10-01. Beginne je nach Anliegen hier:
 
 ## Verbindliche Produkt- und Engineering-Verträge
 
+Sprachkonvention: ARCHITECTURE ist englisch. SPEC ist zweisprachig: neue
+Produktabschnitte (oben) sind deutsch, die älteren Grundabschnitte englisch.
+Neue Plan-, Entscheid-, Nachweis- und Betriebsdokumente sind deutsch; ältere
+Nachweise sind teils englisch und werden nicht nachträglich übersetzt.
+
 | Thema | Einstieg |
 |---|---|
 | Produktmodell | [SPEC](SPEC.md) |

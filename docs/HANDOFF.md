@@ -1,5 +1,25 @@
 # ADE — aktuelle Übergabe
 
+## Goal 34.6: Host-Architekturentscheid angenommen und extern geprüft (3. Oktober 2026)
+
+- Nur Dokumentation, kein Code, keine Aktivierung: Die persönliche Instanz
+  (PID 2394729 laut letzter Aktivierung) ist unverändert.
+- Entscheid E1–E12 für den unabhängigen ADE-Host in
+  [HOST_ARCHITECTURE_DECISION](HOST_ARCHITECTURE_DECISION.md); verbindlicher
+  Zielvertrag in ARCHITECTURE („Decision: independent ADE host“) und SPEC
+  („Unabhängiger ADE-Host“). Bestehende Abschnitte beschreiben bis zur
+  Umsetzung weiterhin das ausgelieferte Verhalten.
+- Externer Review der Orchestrator-Session: R1–R8 angenommen und eingearbeitet
+  (buildspezifisches Host-Verzeichnis, Dauertest, Latenzkriterium,
+  `SO_PEERCRED` optional, `secrets: unavailable`, SIGKILL-Selbstheilung,
+  `ipc.ts`-Besitz in H1, Betreuung als Host-Konsument); R9 (SPEC übersetzen)
+  abgelehnt, Sprachkonvention in `docs/README.md` benannt.
+- Gelesener Systembefund: SDDM-Autologin, `gnome-keyring-daemon` mit beiden
+  Sammlungen entsperrt, Linger aus.
+- Nächster Schritt: Spike H0, zuerst Secret Service aus einer systemd-User-Unit
+  beim Booten. Start erst auf Auftrag des Benutzers.
+- Weiterhin offen und verschoben: Tablet-Probe „Autokauf“ / `idee-…` aufräumen.
+
 ## Fehlende Projektordner und wiederholbarer Projektstart aktiviert (2. Oktober 2026, 12:51 CEST)
 
 - Commit 2dd8fdc über `pnpm activate -- -Label MissingProjects`: Gate 14/0/1 nicht

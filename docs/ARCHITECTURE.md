@@ -1657,8 +1657,9 @@ current contracts in this document (Electron main owns PTYs, the Electron
 single-instance lock owns the profile, app quit stops all PTYs) remain the
 shipped behavior and the only supported one. Rationale, code inventory, herdr
 and prior-art comparison, open technical questions and stage plan:
-[HOST_ARCHITECTURE_DECISION](HOST_ARCHITECTURE_DECISION.md). An external review
-is pending before spike H0 starts.
+[HOST_ARCHITECTURE_DECISION](HOST_ARCHITECTURE_DECISION.md). Externally reviewed
+on 3 October 2026 (R1–R8 accepted, R9 rejected; see section 10 there); spike H0
+is cleared and starts with the Secret Service boot experiment.
 
 - **Ownership (E1).** One long-lived host per OS user and profile owns
   `PtyManager`, `CodexAppServerProcess`, orchestration, `RunCoordinator`, all
@@ -1667,6 +1668,11 @@ is pending before spike H0 starts.
   is instantiated once, inside the host; local and remote adapters call only
   that facade. The desktop keeps windows, tray, dialogs, clipboard,
   `ade-photo://`, microphone grants and showing desktop notifications.
+  ADE's own supervision (Goal 26/33: `SupervisionService`,
+  `CoordinatorConversation`, organizer timers, follow-ups and open questions)
+  runs in the host and survives a closed desktop. External supervisor sessions
+  never receive `desktop-local`; a scoped, audited principal for them is a
+  separate future contract.
 - **Runtime (E2).** Separate entry `out/host/index.js`, started with the
   packaged Electron binary and `ELECTRON_RUN_AS_NODE=1` (no second runtime, same
   node-pty build). Host code must not import `electron` directly or
@@ -1692,9 +1698,11 @@ is pending before spike H0 starts.
   if absent start the service → bounded backoff → visible error, never a local
   write fallback.
 - **Local transport and principals (E5).** Linux: Unix socket
-  `$XDG_RUNTIME_DIR/ade/<profile-hash>.sock`, directory 0700, socket 0600, peer
-  UID check (`SO_PEERCRED`). Windows: named pipe
-  `\\.\pipe\ade-host-<hash(SID+profile)>` with a DACL for the user SID only.
+  `$XDG_RUNTIME_DIR/ade/<profile-hash>.sock`, directory 0700, socket 0600; the
+  kernel enforces the UID through the directory permissions, the host refuses
+  to start if owner or mode deviate, and a `SO_PEERCRED` check is optional.
+  Windows: named pipe `\\.\pipe\ade-host-<hash(SID+profile)>` with a DACL for
+  the user SID only (the only native transport helper).
   Both additionally require a random per-start token from a user-only file; the
   token alone never suffices. HTTP/1.1 for commands plus one upgraded stream
   per attachment for events and PTY bytes with `seq` and bounded backpressure.
@@ -1726,14 +1734,22 @@ is pending before spike H0 starts.
   `safeStorage`, sends over the authenticated local channel, the host re-wraps
   and confirms each entry, and only then are old blobs removed; failure keeps
   them. A locked keyring yields the visible host state `secrets: locked`, which
-  blocks credentialed launches and retries on unlock.
+  blocks credentialed launches and retries on unlock. No Secret Service (no
+  service on the session bus, no collection, unsupported backend) yields
+  `secrets: unavailable` with a diagnosis of the failed check: credential-free
+  work continues, credentialed launches are blocked, never a silent degradation
+  or plaintext fallback.
 - **Versions and activation (E9).** `hello{protocolMajor, protocolMinor,
   capabilities, build}`; the host accepts the same major and minor down to
   N-1, otherwise a typed "host outdated" error. v1 updates drain then restart:
   `restartBlockers()` moves into the host and replaces the `/proc` descendant
   walk and Chromium `SingletonLock` read in Linux activation. `pnpm activate`
   keeps gate and profile backup and swaps/rolls back host and desktop together
-  via `out/`/`out.prev`. Journal migrations are forward-only with an archive
+  via `out/`/`out.prev`. No mixed builds: the host runs from a build-specific
+  directory (`builds/<buildId>/`, `out` only points to it), loads its modules
+  eagerly at start and checks its build id before any later load from the
+  build, otherwise it reports "outdated"; a swap never changes files under a
+  running host. Journal migrations are forward-only with an archive
   first; an older host refuses a newer schema. Live PTY handoff (fd passing or
   per-PTY holders) is not part of v1.
 - **Recovery (E10).** At spawn the host records the agent-reported native id
@@ -1752,7 +1768,7 @@ is pending before spike H0 starts.
   then refers to the host.
 
 What survives what: renderer reload, desktop quit/crash and tablet disconnect
-keep processes and state; host crash or update, logout and reboot end processes
+keep processes and state, including ADE supervision; host crash or update, logout and reboot end processes
 but keep journal state, followed only by explicit native resume. No process
 continuity across a host end and no operation before login are claimed.
 

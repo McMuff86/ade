@@ -276,7 +276,7 @@ Desktop-Notification oder Browser-Mock allein gelten nicht als mobile Abnahme.
   langlebiger Host besitzt PTYs, Adapter,
   Orchestrierung und Journal; Desktop und Tablet sind Clients. Bestehenden
   `AdeApplicationService` weiterverwenden und Electron-Abhängigkeiten erfassen.
-- [ ] (Im Entscheid festgelegt; abgehakt nach dem externen Review.) Vor Umsetzung Prozess-/Profilbesitz, lokale Client-Authentifizierung,
+- [x] (Im Entscheid festgelegt, extern geprüft am 3. Oktober 2026: R1–R8 angenommen, R9 abgelehnt.) Vor Umsetzung Prozess-/Profilbesitz, lokale Client-Authentifizierung,
   Secret-Service-Zugriff, IPC-Ersatz, Versionskompatibilität, Migration und
   Rollback in Architektur und Spezifikation festlegen. Keine zweite schreibende
   Instanz und kein Kopieren entschlüsselter Zugangsdaten in Konfigurationsdateien.
@@ -310,7 +310,9 @@ mit ihrer Umsetzung aktualisiert; dieser Plan ändert sie noch nicht.
 **Nächster Arbeitsstart (Stand 3. Oktober):** 34.1–34.5 sind unter Linux
 umgesetzt. Der Architekturentscheid für 34.6 ist angenommen und in
 ARCHITECTURE/SPEC übernommen ([Entscheid](HOST_ARCHITECTURE_DECISION.md)).
-Nach dem externen Review folgt als nächste Codearbeit Spike H0. Parallel offen bleiben die Abnahmen, die keine
+Der externe Review vom 3. Oktober ist eingearbeitet; nächste Codearbeit ist
+Spike H0, beginnend mit dem Secret-Service-Experiment beim Booten (R5).
+Parallel offen bleiben die Abnahmen, die keine
 weitere Implementierung ersetzen kann: native Windows-Läufe für 34.2–34.5,
 physisches Tablet (gesperrt/geschlossene Ansicht, Mobilfunk, Touch), echte
 Codex-Rückfrage über den Entscheidungseinstieg, echter Rechnerneustart sowie
