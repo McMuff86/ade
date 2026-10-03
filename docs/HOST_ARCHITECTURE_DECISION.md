@@ -129,7 +129,7 @@ und offenen Rückfragen hängen nicht an einem offenen Fenster. Externe
 Aufsichts-Sitzungen (etwa eine Orchestrator-Session ausserhalb von ADE) erhalten
 **nicht** den Prinzipal `desktop-local`. Ihr Zugang wäre ein eigener, begrenzter
 Prinzipal mit Audit und ist ein gesonderter späterer Vertrag; Anforderungen dazu
-sammelt `docs/research/agent-orchestration/STANDING_SUPERVISOR_2026-10-03.md`
+sammelt [STANDING_SUPERVISOR_2026-10-03](research/agent-orchestration/STANDING_SUPERVISOR_2026-10-03.md)
 (vom Orchestrator verfasst).
 
 ### E2 — Laufzeit: Electron-Binary im Node-Modus, Host-Code ohne Electron
