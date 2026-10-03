@@ -74,6 +74,17 @@ Exklusiver Besitz von `src/main/ipc.ts` und den H1-Dateien bis zum Abschluss
   und dessen Handler nicht. Bereits am 26. September als Last-Flakiness in
   unveränderten Pfaden notiert (siehe unten). Nicht behoben; keine
   Treiberänderung in H1f.
+- **H1g, Handler-Tabelle:** 138 der 151 Kanäle sind Host-Handler in
+  `composeHost` (Registrierungen unverändert, die `live.`-Präfixe aus H1f
+  entfallen) und werden nur über `host.dispatch` erreicht; `ipc.ts` registriert
+  sie generisch und behält 13 Electron-gebundene Desktop-Handler. Beide Wege
+  laufen durch `host.guard` (`host/handlers.ts`, die frühere Hülle). Neue Suite
+  `host-handlers` (10 Checks) komponiert den Host in reinem Node; die
+  Grenzprüfung (18 Checks, **213** Module) sichert zusätzlich, dass
+  `src/main/remote` nur `AdeApplicationService` nutzt. `desktop-clients`
+  prüft jetzt, dass `desktop:<clientId>`-Owner nur in der Host-Tabelle
+  entstehen. Vollständiges `pnpm verify`: alle unter Linux gemessenen Schritte
+  grün, Suiten 112/112 mit 4.655 Checks, 16 Windows-Schritte nicht gemessen.
 
 ## Goal 34.6: Spike H0 abgeschlossen (3. Oktober 2026)
 

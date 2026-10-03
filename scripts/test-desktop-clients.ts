@@ -48,13 +48,13 @@ check('a new renderer after close gets a fresh client id, even with a reused num
 check('other clients are unaffected by one renderer closing', b.alive() && clients.for(windowB) === b);
 jobs.dispose();
 
-// Desktop owners are memory-only: they appear in the IPC adapter, never in a store.
+// Desktop owners are memory-only: since H1g they are built in the host handler table, never in a store.
 const mainDir = join(import.meta.dirname, '..', 'src', 'main');
 const files: string[] = [];
 const walk = (dir: string): void => { for (const name of readdirSync(dir)) { const path = join(dir, name); if (statSync(path).isDirectory()) walk(path); else if (path.endsWith('.ts')) files.push(path); } };
 walk(mainDir);
 const owners = files.filter((file) => readFileSync(file, 'utf8').includes('desktop:${')).map((file) => relative(mainDir, file));
-check('desktop:<clientId> owners are built only in the IPC adapter (no persisted owner to migrate)', owners.length === 1 && owners[0] === 'ipc.ts');
+check('desktop:<clientId> owners are built only in the host handler table (no persisted owner to migrate)', owners.length === 1 && owners[0] === 'host/composeHost.ts');
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

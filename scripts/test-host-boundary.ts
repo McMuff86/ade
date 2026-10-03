@@ -13,14 +13,17 @@
  * is re-exported with `export type *`, so it is not loaded through the entry
  * and an Electron import placed only there does not trip this check.
  */
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { importGraph } from './helpers/importGraph';
 
-/** Modules reached from the host entry on the last green run (H1a: 102, H1b: 133, H1c: 142, H1d: 145, H1f: 210). Raise, never lower. */
-const MIN_HOST_MODULES = 210;
+/** Modules reached from the host entry on the last green run (H1a: 102, H1b: 133, H1c: 142, H1d: 145, H1f: 210, H1g: 213). Raise, never lower. */
+const MIN_HOST_MODULES = 213;
 const HOST_ENTRY = 'src/main/host/index.ts';
 const FORBIDDEN = ['electron'];
 /** Desktop-only modules: Electron-free at runtime by themselves, but the host reaches clients only through ports. */
-const DESKTOP_ONLY = ['src/main/rendererWindows.ts', 'src/main/notifications.ts', 'src/main/ipc.ts', 'src/main/index.ts'];
+const DESKTOP_ONLY = ['src/main/rendererWindows.ts', 'src/main/notifications.ts', 'src/main/ipc.ts', 'src/main/index.ts',
+  'src/main/settings/desktopMicrophone.ts'];
 const FIXTURES = 'scripts/fixtures/host-boundary';
 
 let passed = 0; let failed = 0;
@@ -45,6 +48,19 @@ check(`host graph reaches at least ${MIN_HOST_MODULES} modules (no vacuous pass)
 check('host graph contains the orchestration core, so resolution really walked the sources',
   host.modules.includes('src/main/orchestration/OrchestrationService.ts')
   && host.modules.includes('src/main/application/AdeApplicationService.ts'));
+
+// Remote adapter invariant: src/main/remote calls only AdeApplicationService, never
+// the host composer, its handler table/dispatch, or the desktop IPC adapter.
+const remoteDir = join(import.meta.dirname, '..', 'src', 'main', 'remote');
+const remoteFiles = readdirSync(remoteDir, { recursive: true }).map(String).filter((name) => name.endsWith('.ts'))
+  .map((name) => `src/main/remote/${name.split(sep).join('/')}`);
+const remote = importGraph(remoteFiles);
+for (const file of ['src/main/host/composeHost.ts', 'src/main/host/handlers.ts', 'src/main/host/index.ts', 'src/main/ipc.ts']) {
+  check(`remote adapter does not reach ${file}`, !remote.modules.includes(file), remote.chains.get(file)?.join(' -> '));
+}
+const remoteDispatch = remoteFiles.filter((file) => /\b(dispatch|guard|channels)\s*\(|\bhostHandlers\b/.test(readFileSync(join(import.meta.dirname, '..', file), 'utf8')));
+check('remote adapter never calls dispatch/guard/channels of the host handler table', remoteDispatch.length === 0, remoteDispatch.join(', '));
+check('remote adapter reaches AdeApplicationService (positive control)', remote.modules.includes('src/main/application/AdeApplicationService.ts'));
 
 const runtimeChain = importGraph([`${FIXTURES}/runtime-chain/entry.ts`]);
 check('negative control: a runtime Electron import two modules deep is detected with its chain',

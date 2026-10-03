@@ -1672,8 +1672,21 @@ and profile paths (`host/profilePaths.ts`). The Electron implementations live in
 `src/main/desktop/` (`desktopPorts.ts`, `DesktopClients.ts`, `photoProtocol.ts`).
 `scripts/test-host-boundary.ts` walks the runtime import graph from
 `src/main/host/index.ts` and fails if it reaches `electron`, `src/main/desktop/`,
-`rendererWindows.ts`, `notifications.ts`, `ipc.ts` or `index.ts`, with a rising
-minimum module count (210 after H1f).
+`rendererWindows.ts`, `notifications.ts`, `ipc.ts`, `index.ts` or
+`desktopMicrophone.ts`, with a rising minimum module count (213 after H1g). It
+also enforces that `src/main/remote` reaches neither the host composer, its
+handler table nor `ipc.ts` and never calls `dispatch`/`guard`: the host API
+adapter keeps calling only `AdeApplicationService`.
+
+Since H1g the host owns the handler table: 138 of the 151 invoke channels are
+host handlers inside `composeHost` (the former registrations, unchanged),
+reached only through `host.dispatch(channel, payload, client)`. Every channel —
+host or desktop — passes `host.guard` (`host/handlers.ts`), the former IPC hull:
+channel policy and audit line, the host-operation fence for non-reads,
+`catalog:changed` for catalog mutations and the redaction funnel
+(`redactedErrorDetail`/`toIpcError`). `scripts/test-host-handlers.ts` composes
+the host in plain Node and proves that every `CHANNEL_POLICY` channel has
+exactly one handler, host or desktop.
 
 - **Ownership (E1).** One long-lived host per OS user and profile owns
   `PtyManager`, `CodexAppServerProcess`, orchestration, `RunCoordinator`, all
@@ -2976,9 +2989,16 @@ This contract is an internal trusted-renderer adapter. It is not the planned
 network protocol and must never be forwarded by channel name over HTTP.
 
 Since Goal 34.6 H1, `src/main/ipc.ts` is the desktop adapter over the host
-composed by `host/composeHost.ts`: it keeps sender trust, payload validation,
-the channel policy and the redaction funnel, and registers the handlers on top
-of the host's services. Main→renderer events reach windows only through the
+composed by `host/composeHost.ts`. For every channel it checks sender trust
+and payload shape, then hands over to the host: host channels are registered
+generically and forwarded by name to `host.dispatch`; only 13 Electron-bound
+channels keep a desktop handler (workspace bundle pick, target authorization,
+clone search and export, which open native dialogs; dashboard windows; agent
+deletion, which also clears the dashboard partition; clipboard; microphone
+grants; reveal/open/trash through `shell`; the folder picker). Desktop handlers
+run through the same `host.guard`. The generic forwarding exists only between
+the trusted renderer adapter and the in-process host; it is never exposed over
+HTTP, and the device host API still reaches only `AdeApplicationService`. Main→renderer events reach windows only through the
 `HostEvents` port backed by `rendererWindows.ts`. Client-bound state (reply
 speech, dictation jobs, workspace import selections) is owned by
 `desktop:<clientId>`, a random id per renderer from `desktop/DesktopClients.ts`,
