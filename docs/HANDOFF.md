@@ -1,5 +1,8 @@
 # ADE — aktuelle Übergabe
 
+Neuer Kontext für Goal 34.6: zuerst [Kontexthandoff 3. Oktober](CONTEXT_HANDOFF_2026-10-03.md)
+lesen (Haltepunkt, offene Benutzerentscheide, Code-Landkarte H1, Stolpersteine).
+
 ## Goal 34.6 H1: Composition Root getrennt, abgeschlossen (3. Oktober 2026)
 
 Ergebnis: Die gesamte Komposition liegt in `src/main/host/composeHost.ts`

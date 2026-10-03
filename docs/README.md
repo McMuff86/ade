@@ -18,6 +18,7 @@ Stand: 2026-10-01. Beginne je nach Anliegen hier:
 | Projekt → Branch → CLI → Git und Ergebnisdateien: Umsetzung und Abnahme | [Projekt-Workflow-Tasks](PROJECT_WORKFLOW_GOALS.md) |
 | Prioritäten und frühere Produktbewertung | [Aktive Ziele](CLI_WORK_AND_DICTATION_GOALS.md), [datierter Review vom 10. September](research/ADE_PRODUCT_REVIEW_2026-09-10.md) |
 | Aktuelle Übergabe / Betrieb | [HANDOFF](HANDOFF.md) |
+| Goal 34.6 (unabhängiger Host) in neuem Kontext fortsetzen | [Kontexthandoff 3. Oktober](CONTEXT_HANDOFF_2026-10-03.md) |
 | ADE-Agent-Entwicklung nach der Pause wieder aufnehmen | [Kontexthandoff 17. September](CONTEXT_HANDOFF_2026-09-17.md), [Goals](MAIN_AGENT_GOALS.md) |
 | Diesen Entwicklungsstand zu Hause laden | [Update und Erhalt des lokalen Profils](HOME_UPDATE.md) |
 | Geplante Tracks und Abnahmekriterien | [ROADMAP](ROADMAP.md) |
