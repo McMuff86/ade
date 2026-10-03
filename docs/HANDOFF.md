@@ -92,6 +92,19 @@ wartet auf einen Neustart durch den Benutzer.
   und dessen Handler nicht. Bereits am 26. September als Last-Flakiness in
   unveränderten Pfaden notiert (siehe unten). Nicht behoben; keine
   Treiberänderung in H1f.
+  **Behoben in `d83bb7b`** (nur Treiber, Controller unverändert): Ursache war ein
+  TOCTOU-Port. Der Treiber reservierte per `listen(0)` einen Ephemeral-Port,
+  gab ihn frei, und ADE band ihn erst rund 60 s später; `setEnabled` fing
+  dann EADDRINUSE ab, und `pair` meldete den irreführenden Folgefehler. Jetzt
+  liegt der Port unterhalb von `ip_local_port_range`, der
+  `setEnabled`-Status wird geprüft, und `ADE_TEST_BLOCK_MOBILE_PORT=1` ist
+  die dauerhafte Negativkontrolle (rot mit EADDRINUSE). Nachweis: 3×
+  einzeln 90/0, voller `pnpm verify` grün. Dasselbe Reservierungsmuster haben
+  noch `test-mobile-electron`, `test-dictation-electron`,
+  `test-remote-restart-electron`, `test-reply-speech-electron`,
+  `test-setup-electron`, `test-remote-terminal-electron` und
+  `test-session-navigation-electron`; dafür ist später ein gemeinsamer Helfer
+  vorgesehen.
 - **H1g, Handler-Tabelle:** 138 der 151 Kanäle sind Host-Handler in
   `composeHost` (Registrierungen unverändert, die `live.`-Präfixe aus H1f
   entfallen) und werden nur über `host.dispatch` erreicht; `ipc.ts` registriert
