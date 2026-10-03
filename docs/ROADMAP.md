@@ -15,7 +15,7 @@ implementiert und geprüft; letztes vollständiges `pnpm verify` (23:19:14 CEST)
 | 34.3 Betrieb | `pnpm activate` mit Gate/Backup/Rollback, Opt-ins für Autostart/Tray/Wachhalten, Unterbrechungsursache (Aktivierung **21/0**, Lebenszyklus **24/0**) | echter Rechnerneustart, physische Anmeldung/Sperre, Windows |
 | 34.4 Entscheidungen | Gemeinsamer Einstieg mit Aktionen nach Fähigkeit, gebundenen Eingaben, Entwürfen (**56/0**) | echte Codex-Rückfrage über die Ansicht, Windows, Tablet |
 | 34.5 Push | Web Push für bestätigte Run-Ereignisse, Testsperre mit Countdown, `renotify`, Burst-Grenze (**74/0**, Browser **33/0**); physischer Testempfang bestätigt | Empfang bei gesperrtem Tablet, echte Aufgabenereignisse am Gerät, Windows |
-| 34.6 Unabhängiger Host | nicht begonnen | Architekturentscheid als nächste Codearbeit |
+| 34.6 Unabhängiger Host | Architekturentscheid angenommen und in ARCHITECTURE/SPEC übernommen ([HOST_ARCHITECTURE_DECISION](HOST_ARCHITECTURE_DECISION.md), 3. Oktober); kein Code | externer Review, danach Spike H0 und Etappen H1–H7 |
 
 Commits der Stabilisierung: `5ea398f` (Push-Countdown), `198e39b` (34.4),
 `e5fda7f` (34.3), `2dde188` (34.5). Persönliche Aktivierung dieser Commits

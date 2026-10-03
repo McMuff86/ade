@@ -1574,7 +1574,8 @@ Electron app and port the load-bearing pieces:
 - pty-daemon's session model (ring buffer, detach/replay) — but NOT its
   POSIX-only process (fd-handoff/stty). ADE started Windows-first: node-pty
   (ConPTY on Windows, a Unix PTY on native Linux) lives in the Electron main
-  process. A separate long-lived host is the subject of Goal 34.6.
+  process. A separate long-lived host is the subject of Goal 34.6 (see
+  "Decision: independent ADE host").
 
 Hermes memory design is ported per `docs/reports/hermes-memory.md`.
 
@@ -1644,6 +1645,116 @@ The personal alpha uses a loopback-only host behind Tailscale Serve. Tailscale
 is the private ingress and outer identity boundary; ADE still owns per-device
 pairing, endpoint authorization, sessions, audit and revocation. Public ingress,
 accounts and hosted relays are deferred until after personal-alpha validation.
+
+Goal 34.6 moves the authoritative role from the Electron desktop to the
+independent ADE host (next decision). Mobile stays a control adapter; the
+desktop becomes a second client of the same host.
+
+## Decision: independent ADE host (Goal 34.6)
+
+**Accepted 3 October 2026; not implemented.** Until the stages below land, the
+current contracts in this document (Electron main owns PTYs, the Electron
+single-instance lock owns the profile, app quit stops all PTYs) remain the
+shipped behavior and the only supported one. Rationale, code inventory, herdr
+and prior-art comparison, open technical questions and stage plan:
+[HOST_ARCHITECTURE_DECISION](HOST_ARCHITECTURE_DECISION.md). An external review
+is pending before spike H0 starts.
+
+- **Ownership (E1).** One long-lived host per OS user and profile owns
+  `PtyManager`, `CodexAppServerProcess`, orchestration, `RunCoordinator`, all
+  stores, journal and retention, `HostLifecycle`/recovery, secrets, the host
+  API, Tailscale Serve, mobile PWA assets and Web Push. `AdeApplicationService`
+  is instantiated once, inside the host; local and remote adapters call only
+  that facade. The desktop keeps windows, tray, dialogs, clipboard,
+  `ade-photo://`, microphone grants and showing desktop notifications.
+- **Runtime (E2).** Separate entry `out/host/index.js`, started with the
+  packaged Electron binary and `ELECTRON_RUN_AS_NODE=1` (no second runtime, same
+  node-pty build). Host code must not import `electron` directly or
+  transitively; `pnpm verify` enforces this with an import-graph check.
+  `utilityProcess` and a windowless Electron main are rejected.
+- **Supervision (E3).** Linux: systemd user unit `ade-host.service`
+  (`Restart=on-failure`, default `KillMode=control-group`, so agents die with
+  the host instead of running unsupervised); the desktop starts it through
+  `systemctl --user start`, never as its own child (it would share the app
+  scope); `setsid` + double fork only without systemd. Windows: per-user process
+  in the logged-in session via Task Scheduler at logon (plus on-demand start of
+  that task), breaking away from caller kill-on-close jobs; each session in its
+  own `KILL_ON_JOB_CLOSE` job object. No Windows service (session 0). Linger is
+  off by default.
+- **Single writer (E4).** The host holds `flock(LOCK_EX|LOCK_NB)` (Windows:
+  `LockFileEx`) on `<profile>/ade/host.lock` before binding its socket; the file
+  content (`pid`, `bootId`, start, build, protocol, socket, epoch) is
+  diagnostic only. Every start increments a monotonic epoch stamped on journal
+  and lifecycle writes; stale-epoch writes are refused. The `ConfigStore`
+  `O_EXCL` lock and disk fingerprint remain as a second line. The desktop never
+  opens stores for writing; the Electron single-instance lock only guards one
+  desktop UI per profile. Desktop start: read lock info → connect → `hello` →
+  if absent start the service → bounded backoff → visible error, never a local
+  write fallback.
+- **Local transport and principals (E5).** Linux: Unix socket
+  `$XDG_RUNTIME_DIR/ade/<profile-hash>.sock`, directory 0700, socket 0600, peer
+  UID check (`SO_PEERCRED`). Windows: named pipe
+  `\\.\pipe\ade-host-<hash(SID+profile)>` with a DACL for the user SID only.
+  Both additionally require a random per-start token from a user-only file; the
+  token alone never suffices. HTTP/1.1 for commands plus one upgraded stream
+  per attachment for events and PTY bytes with `seq` and bounded backpressure.
+  Principal `desktop-local` (full trust) and the unchanged signed device
+  principals; the host assigns a `clientId` per connection that replaces
+  `event.sender.id` as owner of dictation jobs, bundle selections and reply
+  speech. Agent PTYs never receive the host socket or token; a task callback
+  gets a revocable, audited capability scoped to its own task.
+- **Desktop path (E6).** Renderer → preload → Electron main → local socket →
+  host. Main keeps sender validation and `ipcPolicy.ts` and forwards a
+  validated channel + payload generically; the host evaluates the same
+  `CHANNEL_POLICY` again for `desktop-local`. `REMOTE_COMMAND_CHANNELS` and the
+  device host API stay as narrow as today. Host events reach renderers only via
+  `rendererWindows.ts`; `OrchestrationView` rules are unchanged. The local
+  principal still receives paths; wire redaction applies to devices. Per PTY:
+  any number of read-only observers, exactly one writer with explicit, visible
+  takeover.
+- **Host API (E7).** `HostApiServer`, `MobileAccessController`,
+  `TailscaleService`, Web Push and PWA delivery run in the host, so tablet and
+  host versions always match. Loopback-only, disabled by default, pairing,
+  signatures, idempotency, audit and `redactForWire` are unchanged; device
+  administration remains a `desktop-local` action.
+- **Secrets (E8).** One wrapping key in the OS keyring (Linux Secret Service
+  over D-Bus without kernel-keyring fallback; Windows DPAPI); secrets are
+  AES-GCM encrypted in the host store; never a plaintext fallback.
+  Reimplementing Chromium OSCrypt and handing secrets from the desktop in memory
+  are rejected. One-time migration of `harness-credentials.json`,
+  `remote/devices.json` and `remote/push.json`: the desktop decrypts with
+  `safeStorage`, sends over the authenticated local channel, the host re-wraps
+  and confirms each entry, and only then are old blobs removed; failure keeps
+  them. A locked keyring yields the visible host state `secrets: locked`, which
+  blocks credentialed launches and retries on unlock.
+- **Versions and activation (E9).** `hello{protocolMajor, protocolMinor,
+  capabilities, build}`; the host accepts the same major and minor down to
+  N-1, otherwise a typed "host outdated" error. v1 updates drain then restart:
+  `restartBlockers()` moves into the host and replaces the `/proc` descendant
+  walk and Chromium `SingletonLock` read in Linux activation. `pnpm activate`
+  keeps gate and profile backup and swaps/rolls back host and desktop together
+  via `out/`/`out.prev`. Journal migrations are forward-only with an archive
+  first; an older host refuses a newer schema. Live PTY handoff (fd passing or
+  per-PTY holders) is not part of v1.
+- **Recovery (E10).** At spawn the host records the agent-reported native id
+  (Codex app-server thread id; Claude `--session-id`) with cwd/worktree,
+  `CODEX_HOME` and profile. After a host end only an explicit "continue
+  conversation (new process)" is offered; never automatic resume or input
+  replay; bypass-mode tasks restart only on explicit user action.
+- **Electron replacements (E11).** `nativeImage` → an Electron-free image
+  library (chosen in H0); `Notification` → host event shown by the desktop;
+  `powerSaveBlocker` → `systemd-inhibit` / `SetThreadExecutionState`;
+  login item → service/task registration; `app.relaunch` → service-manager
+  restart; crash capture → Node process handlers plus the service journal.
+- **Close vs quit (E12).** Closing the window or quitting the desktop leaves
+  host and work running; "quit host and work" requires confirmation with the
+  list of live sessions and writes the clean end. 34.3 lifecycle classification
+  then refers to the host.
+
+What survives what: renderer reload, desktop quit/crash and tablet disconnect
+keep processes and state; host crash or update, logout and reboot end processes
+but keep journal state, followed only by explicit native resume. No process
+continuity across a host end and no operation before login are claimed.
 
 ## Toolchain
 
@@ -1909,7 +2020,9 @@ guarantees. Model ids accept only a conservative CLI-safe character set.
   Superset pty-daemon pattern. Output events carry a sequence number so replay
   and the live stream meet without a race.
 - Main owns sessions across renderer reloads. `pty:list` reconstructs renderer
-  tabs; full app quit still stops all PTYs.
+  tabs; full app quit still stops all PTYs. (Accepted target, not implemented:
+  the independent host owns PTYs and quitting the desktop leaves them running;
+  see "Decision: independent ADE host".)
 - Interactive sessions spawn immediately. One-shot task sessions acquire a
   FIFO lease with a global limit of four active task CLIs. The lease is held
   until exit/cancellation, not merely until process spawn.
@@ -2690,7 +2803,9 @@ history rows; desktop and tablet name the cause and state that nothing was
 replayed. Such rows have no actions and open the project, never a PTY: no
 process continuity, input replay, privileged retry or native resume is
 claimed. The Electron single-instance lock remains the only profile owner;
-a second launch only raises the window or forwards the quit switches.
+a second launch only raises the window or forwards the quit switches. Goal
+34.6 (accepted, not implemented) moves profile ownership to the host lock and
+epoch, and this classification to the host.
 
 The single profile owner requests Electron `prevent-app-suspension` while the
 local opt-in is enabled and a PTY, queued task, running run, conversation turn,
@@ -3070,6 +3185,10 @@ than they appear to.
   queued tasks, active runs/conversations, workspace/integration operations and
   admitted host mutations prevent shutdown. Linux exposes no force/skip switch.
   Older builds without the guarded switch require a deliberate tray quit first.
+  Accepted Goal 34.6 target (not implemented): the busy check is queried from
+  the host over the local channel instead of `/proc` and the Chromium
+  `SingletonLock`, and host and desktop builds are swapped and rolled back
+  together.
 - Linux activation locks its checkout, copies the verified build before quitting,
   and takes private profile snapshots both before and after graceful shutdown
   (`~/ADE-Backups/Activate-*/before-quit` and `profile`; Chromium singleton links
@@ -3337,7 +3456,9 @@ the `all` policy; selected projects retain their per-workspace Git/publish APIs.
 `MobileHostState.resourceSelection` explains this in the mobile management flow.
 
 Electron owns one process per user-data profile via `requestSingleInstanceLock`;
-a subsequent launch activates the initialized owner. A launch with `--ade-quit`
+a subsequent launch activates the initialized owner. (Accepted Goal 34.6
+target, not implemented: the host `flock` owns the profile and this lock only
+guards one desktop UI; see "Decision: independent ADE host".) A launch with `--ade-quit`
 instead asks the owner to quit through the tray's graceful path (PTY and usage
 shutdown) and starts nothing when no owner runs; `scripts/activate.ps1` uses it
 so Windows restarts need no UI automation. Linux activation uses the separate guarded

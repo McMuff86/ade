@@ -271,10 +271,12 @@ Desktop-Notification oder Browser-Mock allein gelten nicht als mobile Abnahme.
 
 ## Goal 34.6 — Arbeit läuft in einem unabhängigen ADE-Host
 
-- [ ] Architekturentscheid vorbereiten: langlebiger Host besitzt PTYs, Adapter,
+- [x] Architekturentscheid vorbereiten (3. Oktober 2026 angenommen und in
+  ARCHITECTURE/SPEC übernommen: [HOST_ARCHITECTURE_DECISION](HOST_ARCHITECTURE_DECISION.md)):
+  langlebiger Host besitzt PTYs, Adapter,
   Orchestrierung und Journal; Desktop und Tablet sind Clients. Bestehenden
   `AdeApplicationService` weiterverwenden und Electron-Abhängigkeiten erfassen.
-- [ ] Vor Umsetzung Prozess-/Profilbesitz, lokale Client-Authentifizierung,
+- [ ] (Im Entscheid festgelegt; abgehakt nach dem externen Review.) Vor Umsetzung Prozess-/Profilbesitz, lokale Client-Authentifizierung,
   Secret-Service-Zugriff, IPC-Ersatz, Versionskompatibilität, Migration und
   Rollback in Architektur und Spezifikation festlegen. Keine zweite schreibende
   Instanz und kein Kopieren entschlüsselter Zugangsdaten in Konfigurationsdateien.
@@ -305,9 +307,10 @@ Instanz nach `test-results/verify-build`; Aktivierung erfolgt über das dafür
 geprüfte `pnpm activate`. Produktverträge in ARCHITECTURE/SPEC werden gemeinsam
 mit ihrer Umsetzung aktualisiert; dieser Plan ändert sie noch nicht.
 
-**Nächster Arbeitsstart (Stand 1. Oktober abends):** 34.1–34.5 sind unter Linux
-umgesetzt. Als nächste Codearbeit folgt der schriftliche Architekturentscheid
-für 34.6 (unabhängiger Host). Parallel offen bleiben die Abnahmen, die keine
+**Nächster Arbeitsstart (Stand 3. Oktober):** 34.1–34.5 sind unter Linux
+umgesetzt. Der Architekturentscheid für 34.6 ist angenommen und in
+ARCHITECTURE/SPEC übernommen ([Entscheid](HOST_ARCHITECTURE_DECISION.md)).
+Nach dem externen Review folgt als nächste Codearbeit Spike H0. Parallel offen bleiben die Abnahmen, die keine
 weitere Implementierung ersetzen kann: native Windows-Läufe für 34.2–34.5,
 physisches Tablet (gesperrt/geschlossene Ansicht, Mobilfunk, Touch), echte
 Codex-Rückfrage über den Entscheidungseinstieg, echter Rechnerneustart sowie

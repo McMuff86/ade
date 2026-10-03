@@ -1,5 +1,40 @@
 # ADE — Agentic Development Environment · Product Spec
 
+## Unabhängiger ADE-Host (Goal 34.6, beschlossen 3. Oktober 2026, nicht umgesetzt)
+
+Bis zur Umsetzung gilt unverändert: Der Electron-Desktop ist der einzige
+Ausführungshost, und „ADE beenden“ beendet alle Sitzungen. Beschlossenes Ziel
+(Begründung und Etappen: [HOST_ARCHITECTURE_DECISION](HOST_ARCHITECTURE_DECISION.md);
+technischer Vertrag: ARCHITECTURE, „Decision: independent ADE host“). Vor dem
+Beginn wird der Entscheid extern geprüft.
+
+- Ein ADE-Host pro Benutzer und Profil führt alle Agenten, Terminals, Runs,
+  Secrets und die Tablet-Freigabe aus. Desktop und Tablet sind gleichwertige
+  Clients; das Tablet bleibt mobile Steuerung und führt nichts selbst aus.
+- Der Host läuft, solange der Benutzer angemeldet ist, auch ohne offenes
+  Desktopfenster. Betrieb vor der Anmeldung ist ein eigener späterer Vertrag
+  und standardmässig aus.
+- **Was überlebt was:** Renderer-Reload, Schliessen, Absturz oder Neustart des
+  Desktops und Trennen des Tablets lassen Sitzungen weiterlaufen; nach dem
+  Wiederverbinden zeigt ADE dieselbe Sitzung mit fortlaufender Ausgabe.
+  Host-Absturz, Host-Update, Abmelden und Neustart beenden die Prozesse; der
+  Run- und Journalzustand bleibt erhalten.
+- Nach einem Host-Ende nennt ADE die Ursache und bietet nur ausdrücklich
+  „Gespräch fortsetzen (neuer Prozess)“ an, wenn der Agent eine eigene
+  Sitzungs-ID gemeldet hat. Nichts wird automatisch fortgesetzt oder wiederholt.
+- „Fenster schliessen“ und „Desktop beenden“ lassen Host und Arbeit laufen.
+  „Host und Arbeit beenden“ verlangt eine Bestätigung mit der Liste laufender
+  Sitzungen.
+- An einem Terminal können Desktop und Tablet gleichzeitig zuschauen; tippen
+  darf genau einer, und eine Übernahme ist ausdrücklich und sichtbar.
+- Ist der Schlüsselbund gesperrt, zeigt ADE auf Desktop und Tablet „Zugangsdaten
+  gesperrt“ und startet keine Arbeit, die Zugangsdaten braucht. Zugangsdaten
+  liegen nie im Klartext.
+- Updates warten, bis keine Arbeit läuft, und starten Host und Desktop
+  gemeinsam neu; Rollback betrifft beide. Eine Desktopversion, die nicht zum
+  Host passt, meldet das verständlich, statt teilweise zu funktionieren.
+- Lieferung zuerst unter nativem Linux, danach nativ unter Windows; macOS später.
+
 ## Persönliche Tasks und Notes
 
 Tasks und Notes sind eigenständige persönliche Seiten, getrennt von ausführbaren
@@ -526,7 +561,10 @@ telemetry or replace Terminals or Graph.
 The desktop remains the only execution host. The installable mobile companion
 submits and observes managed work and, with separate desktop device grants,
 opens workspace files, Git changes and interactive host terminals. All agents,
-Git operations and terminal processes run on that host.
+Git operations and terminal processes run on that host. Accepted Goal 34.6
+target (not implemented): an independent per-user ADE host becomes the
+execution host and the desktop becomes a client alongside mobile (see
+"Unabhängiger ADE-Host" above).
 
 References:
 - Layout sketch: `mock/PENUP_20260707_214207.png`
@@ -935,6 +973,9 @@ source-install and tablet setup steps are in [USER_GUIDE.md](USER_GUIDE.md).
   Dedicated device-granted terminal, file and catalog APIs are implemented
   as specified above; they do not expose Electron IPC or arbitrary host paths.
 - No remote desktop replacement.
+- Independent host (Goal 34.6): no process continuity across a host crash,
+  update, logout or reboot; no live PTY handoff in v1; no operation before
+  login by default; no Windows service.
 - No model picker inside a session.
 - No built-in chat UI separate from the terminal.
 - Custom background images/gradients: architecture only, no UI.
