@@ -17,6 +17,10 @@ for ADE.
 - [`EVALUATION_PLAN.md`](EVALUATION_PLAN.md) — an eval-driven method for proving
   that prompt and orchestration changes improve results.
 - [`SOURCES.md`](SOURCES.md) — primary sources and the claims taken from them.
+- [`STANDING_SUPERVISOR_2026-10-03.md`](STANDING_SUPERVISOR_2026-10-03.md) —
+  design note: continuous oversight, typed review findings, bounded follow-up
+  rounds and recorded delegation, derived from manual operation of the pattern
+  (not a decision, not implemented).
 
 ## Executive conclusion
 
