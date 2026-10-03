@@ -24,6 +24,11 @@ export async function exerciseModelPicker(page: Page, state: string, configPath:
   check('new model selection persists through real IPC and config writes', agent.codexModel === 'codex-fixture-fast' && agent.codexReasoningEffort === 'low');
   await page.getByRole('button', { name: 'Agent-Einstellungen für Model Picker Fixture', exact: true }).click({ force: true });
   dialog = page.getByRole('dialog', { name: 'Agent-Einstellungen', exact: true }); await dialog.waitFor();
+  // The stored value is present even while the first catalog request is still
+  // pending. Finish that request before changing the fixture and refreshing;
+  // otherwise its transient fallback can satisfy the later removal assertion.
+  await expect(dialog.locator('#edit-agent-codex-model option:checked')).toContainText(MODEL_FIXTURE_CATALOG.codex[1].displayName);
+  await expect(dialog.getByRole('button', { name: 'Modelle aktualisieren', exact: true })).toBeEnabled();
   check('edit dialog restores the chosen model', await dialog.locator('#edit-agent-codex-model').inputValue() === 'codex-fixture-fast');
   setState({ codex: [MODEL_FIXTURE_CATALOG.codex[0]] });
   await dialog.getByRole('button', { name: 'Modelle aktualisieren', exact: true }).click();
