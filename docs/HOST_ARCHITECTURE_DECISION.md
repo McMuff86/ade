@@ -331,7 +331,20 @@ Passwort, Spike H0, Experiment 1). Das betrifft schon heute den
 bzw. passwortlosen Schlüsselbund und zeigt das als Diagnose an. Das ist kein
 Blocker, und ADE behauptet dann keine Verschlüsselung, die der Schlüsselbund
 nicht bietet. Ob ein Schlüsselbund-Passwort gesetzt wird, entscheidet der
-Benutzer; ADE ändert die Konfiguration nicht. Zusätzlich aus H0: Ein fehlender
+Benutzer; ADE ändert die Konfiguration nicht.
+
+**Benutzerentscheid vom 3. Oktober 2026, 11:06: Schlüsselbund ohne Passwort
+beibehalten.** Begründung:
+- `/` und `/home` liegen auf `/dev/mapper/root` (btrfs) über `nvme2n1p2`
+  (crypto_LUKS); `lsblk` hat das am 3. Oktober bestätigt. Die beim Booten
+  eingegebene Passphrase gilt LUKS; der Desktop meldet sich danach per
+  SDDM-Autologin an.
+- Im Ruhezustand schützt LUKS den Schlüsselbund. Im laufenden Betrieb ist ein
+  entsperrter Schlüsselbund für Prozesse des Benutzers ohnehin lesbar, ein
+  Passwort brächte also kaum zusätzlichen Schutz.
+- Die Diagnose „passwortloser Schlüsselbund“ bleibt wie beschlossen.
+
+Zusätzlich aus H0: Ein fehlender
 Eintrag in einer **gesperrten** Sammlung liest sich als `null`. Der Host prüft
 deshalb `Locked`, bevor er einen fehlenden Wrapping-Key als Erststart deutet
 (Negativkontrolle in H2).
