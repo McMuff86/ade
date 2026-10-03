@@ -1,5 +1,24 @@
 # ADE — aktuelle Übergabe
 
+## Goal 34.6 H1: Composition Root trennen, läuft (3. Oktober 2026)
+
+Exklusiver Besitz von `src/main/ipc.ts` und den H1-Dateien bis zum Abschluss
+(R7); kein Verhaltenswechsel für Renderer oder Tablet; keine Aktivierung.
+
+- **H1a, Grenzprüfung:** `scripts/test-host-boundary.ts` (Suite
+  `host-boundary`, 6 Checks) läuft den Laufzeit-Importgraphen ab
+  `src/main/host/index.ts` (`scripts/helpers/importGraph.ts`, TypeScript-API;
+  Type-only-Importe zählen nicht, `require()` und `import()` schon). Sie
+  schlägt mit der Kette fehl, sobald `electron` erreicht wird, und verlangt
+  mindestens **102** Module. Fixtures: Laufzeitkette und lazy `require` müssen
+  fehlschlagen, Type-only muss bestehen.
+- Gegenprobe vorgeführt (nicht committet): absichtlicher Electron-Import in
+  `HostOperationService.ts` → `src/main/host/index.ts -> …/HostOperationService.ts
+  -> electron`, 5/1.
+- `src/main/host/ports.ts` beschreibt die Ports (Ereignisse, Benachrichtigung,
+  Bild, Secrets, Power, Autostart, Relaunch, App-Info, Profilpfade); noch
+  ungenutzt.
+
 ## Goal 34.6: Spike H0 abgeschlossen (3. Oktober 2026)
 
 - Messprotokoll: [H0_SPIKE_2026-10-03](research/host/H0_SPIKE_2026-10-03.md),

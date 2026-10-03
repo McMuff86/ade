@@ -5,7 +5,7 @@ export interface LoginStartup {
   enabled(): boolean;
   set(enabled: boolean): void;
 }
-interface SleepBlocker {
+export interface SleepBlocker {
   start(type: 'prevent-app-suspension'): number;
   stop(id: number): boolean;
   isStarted(id: number): boolean;
