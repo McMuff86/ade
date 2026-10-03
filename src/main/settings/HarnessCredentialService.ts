@@ -75,28 +75,16 @@ interface CredentialFile {
   serviceKeys: Record<string, StoredServiceKey>;
 }
 
-/** Lazily binds Electron safeStorage so tests can inject a fake encryptor. */
-function electronEncryptor(): HarnessKeyEncryptor {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { safeStorage } = require('electron') as typeof import('electron');
-  return {
-    available: () => isSafeStorageSecure(
-      safeStorage.isEncryptionAvailable(),
-      process.platform,
-      process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : 'unknown',
-    ),
-    encrypt: (plain) => safeStorage.encryptString(plain),
-    decrypt: (encrypted) => safeStorage.decryptString(encrypted),
-  };
-}
 
 export class HarnessCredentialService {
   private readonly filePath: string;
-  private encryptor: HarnessKeyEncryptor | null;
+  private readonly encryptor: HarnessKeyEncryptor;
 
-  constructor(userDataDir: string, encryptor?: HarnessKeyEncryptor) {
+  /** The encryptor is injected (desktop: Electron safeStorage); the service never loads Electron. */
+  constructor(userDataDir: string, encryptor: HarnessKeyEncryptor) {
+    if (!encryptor) throw new Error('ade: harness credentials need an explicit encryptor');
     this.filePath = join(userDataDir, 'ade', 'harness-credentials.json');
-    this.encryptor = encryptor ?? null;
+    this.encryptor = encryptor;
   }
 
   available(): boolean {
@@ -225,7 +213,6 @@ export class HarnessCredentialService {
   }
 
   private crypto(): HarnessKeyEncryptor {
-    if (!this.encryptor) this.encryptor = electronEncryptor();
     return this.encryptor;
   }
 

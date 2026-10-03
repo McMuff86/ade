@@ -25,6 +25,17 @@ Exklusiver Besitz von `src/main/ipc.ts` und den H1-Dateien bis zum Abschluss
   (`notifications.ts`). Die Grenzprüfung erreicht jetzt **133** Module
   (Mindestwert angehoben) und verbietet zusätzlich `rendererWindows.ts`,
   `notifications.ts`, `ipc.ts` und `index.ts` im Host-Graphen.
+- **H1c, Profilpfade und Secrets explizit:** `index.ts` leitet alle Pfade
+  einmal aus `app.getPath('userData')` ab (`host/profilePaths.ts`, nach dem
+  `ADE_USER_DATA_DIR`-Override) und übergibt sie an `ConfigStore` und
+  `registerIpcHandlers`. `identity.ts`, `photos.ts`, `config/store.ts` und
+  `HarnessCredentialService` laden kein Electron mehr; das
+  `ade-photo://`-Protokoll liegt in `desktop/photoProtocol.ts`. Eine
+  gemeinsame Desktop-`SecretProtection` (safeStorage) dient Harness-Keys,
+  Geräten und Push. Neue Suite `profile-paths` (16 Checks) belegt, dass jede
+  Ableitung der bisherigen Formel entspricht, auch für `~/.config/ade`; der
+  Electron-Workflow vergleicht `app.getPath('userData')` des echten Laufs.
+  Grenzprüfung: **142** Module.
 
 ## Goal 34.6: Spike H0 abgeschlossen (3. Oktober 2026)
 

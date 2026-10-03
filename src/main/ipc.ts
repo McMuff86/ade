@@ -9,7 +9,8 @@ import { OrganizerReminders } from './organizer/OrganizerReminders';
 import { OrganizerError } from './organizer/OrganizerStore';
 import { ORGANIZER_REJECTED } from '../shared/organizer';
 import { desktopNotifier } from './notifications';
-import type { HostEvents } from './host/ports';
+import type { HostEvents, ProfilePaths, SecretProtection } from './host/ports';
+import { photosDir } from './host/profilePaths';
 import { TerminalImageStore } from './application/TerminalImageStore';
 import { SpeechService } from './settings/SpeechService';
 import { ReplySpeechService } from './settings/ReplySpeechService';
@@ -218,9 +219,9 @@ function handle<K extends keyof IpcInvokeMap>(
   handleWithEvent(channel, (payload) => handler(payload));
 }
 
-export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
+export async function registerIpcHandlers(store: ConfigStore, paths: ProfilePaths): Promise<void> {
   // Classify how the previous owner ended before any recovery marks its work.
-  hostLifecycle = new HostLifecycle(join(app.getPath('userData'), 'ade', 'lifecycle.json'));
+  hostLifecycle = new HostLifecycle(join(paths.profileDir, 'lifecycle.json'));
   const previousEnd = hostLifecycle.previous;
   if (previousEnd.cause !== 'app-quit') console.warn(`[ade] previous owner ended: ${previousEnd.cause}`);
   lifecycleTimer = setInterval(() => hostLifecycle?.heartbeat(), LIFECYCLE_HEARTBEAT_MS);
@@ -249,7 +250,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.HostOperationGet, () => hostOperation!.status());
   handle(IPC.HostOperationChange, input => hostOperation!.change(input));
   const execution = new ExecutionBackendService();
-  const portabilityProfileDir = join(app.getPath('userData'), 'ade');
+  const portabilityProfileDir = paths.profileDir;
   const portabilityProbe = new TargetPathProbe({ hostPlatform: process.platform }, execution);
   const workspaceImport = new WorkspaceImportService({
     profileDir: portabilityProfileDir,
@@ -315,7 +316,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       if (!orchestration) return;
       broadcastToRenderers(IPC_EVENTS.OrchestrationChanged, orchestration.view());
     });
-  }, new RunArchiveStore(join(app.getPath('userData'), 'ade', 'archive', 'runs')));
+  }, new RunArchiveStore(join(paths.profileDir, 'archive', 'runs')));
   const recoveredTasks = orchestration.recoverInterruptedTasks(TASK_INTERRUPTION_REASON[previousEnd.cause]);
   if (recoveredTasks > 0) {
     console.warn(`[ade] recovered ${recoveredTasks} interrupted run task(s)`);
@@ -347,8 +348,15 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   runCoordinator.setNotifier(desktopNotifier);
   const runQuestions = new RunQuestionService(orchestration, (taskId, waiting) => runCoordinator!.onTaskQuestionWait(taskId, waiting));
   const publications = new PublicationService(store, orchestration, backendWorkspaces, execution);
-  const harnessCredentials = new HarnessCredentialService(app.getPath('userData'));
-  const usageJournal = new UsageJournal(join(app.getPath('userData'), 'ade', 'usage', 'events.jsonl'));
+  // One desktop SecretProtection (Electron safeStorage) for harness keys, device secrets and push state.
+  const desktopSecrets: SecretProtection = {
+    available: () => isSafeStorageSecure(safeStorage.isEncryptionAvailable(), process.platform,
+      process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : ''),
+    encrypt: (value) => safeStorage.encryptString(value),
+    decrypt: (value) => safeStorage.decryptString(value),
+  };
+  const harnessCredentials = new HarnessCredentialService(paths.userData, desktopSecrets);
+  const usageJournal = new UsageJournal(join(paths.profileDir, 'usage', 'events.jsonl'));
   nativeUsage = new NativeUsageService(usageJournal);
   usageOverview = new UsageOverviewService({ nativeUsage: () => nativeUsage, claudeEnabled: () => store.get().settings.claudeAccountUsage === true });
   const speechUsage = new SpeechUsageService(usageJournal);
@@ -393,7 +401,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     return hostOperations.use(() => replies.speak(owner, input.replyId));
   });
   const agentBehavior = new AgentBehaviorService(store);
-  const organizer = new OrganizerService(join(app.getPath('userData'), 'ade', 'organizer.json'),
+  const organizer = new OrganizerService(join(paths.profileDir, 'organizer.json'),
     revision => broadcastToRenderers(IPC_EVENTS.OrganizerChanged, { revision }), image => {
       const decoded = nativeImage.createFromBuffer(Buffer.from(image.base64, 'base64'));
       const size = decoded.getSize();
@@ -417,18 +425,18 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   checkReminders();
   let supervision: SupervisionService | undefined;
   let coordinatorActions: CoordinatorActionService | undefined;
-  const supervisionService = () => supervision ??= new SupervisionService(new SupervisionStore(join(app.getPath('userData'), 'ade', 'supervision.json')),
+  const supervisionService = () => supervision ??= new SupervisionService(new SupervisionStore(join(paths.profileDir, 'supervision.json')),
     store, id => ptyManager?.getSessionMeta(id), Date.now, projectId => actionService().links(projectId));
   handle(IPC.SupervisionGet, () => supervisionService().query());
   handle(IPC.SupervisionDetail, ({ projectId }) => supervisionService().detail(projectId));
   handle(IPC.SupervisionCommand, input => supervisionService().command(input));
   handle(IPC.SupervisionBriefing, () => supervisionService().briefing());
   handle(IPC.SupervisionHandoff, ({ projectId, handoffId }) => supervisionService().handoff(projectId, handoffId));
-  const conversationService = () => conversations ??= createCoordinatorConversation({ directory: join(app.getPath('userData'), 'ade'),
+  const conversationService = () => conversations ??= createCoordinatorConversation({ directory: paths.profileDir,
     actions: () => actionService(),
     config: store, supervision: supervisionService(), env: () => ({ ...Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string')), ...harnessCredentials.envFor('codex') }),
     changed: () => broadcastToRenderers(IPC_EVENTS.ConversationChanged, null) });
-  const actionService = (): CoordinatorActionService => coordinatorActions ??= new CoordinatorActionService(new CoordinatorActionStore(join(app.getPath('userData'), 'ade', 'conversation-actions.json')), {
+  const actionService = (): CoordinatorActionService => coordinatorActions ??= new CoordinatorActionService(new CoordinatorActionStore(join(paths.profileDir, 'conversation-actions.json')), {
     config: store, supervision: supervisionService(),
     authorize: (id, binding, requireOpen) => conversationService().assertActionAuthority(id, binding, requireOpen),
     afterProjectChange: (id, binding) => conversationService().continuationAuthority(id, binding),
@@ -459,13 +467,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   ptyManager.setClientPorts(rendererEvents, desktopNotifier);
   ptyManager.setNativeUsage(nativeUsage);
   const hostApiConfig = consumeHostApiConfig(process.env);
-  const remoteProtection: import('./remote/RemoteDeviceStore').DeviceSecretProtection = {
-    available: () => isSafeStorageSecure(safeStorage.isEncryptionAvailable(), process.platform,
-      process.platform === 'linux' ? safeStorage.getSelectedStorageBackend() : ''),
-    encrypt: (value) => safeStorage.encryptString(value),
-    decrypt: (value) => safeStorage.decryptString(value),
-  };
-  const remoteDevices = new RemoteDeviceStore(join(app.getPath('userData'), 'ade', 'remote'), remoteProtection);
+  const remoteDevices = new RemoteDeviceStore(join(paths.profileDir, 'remote'), desktopSecrets);
   const repositorySync = new RepositorySyncService(store, () => ptyManager?.list() ?? [], execution);
   if (hostApiConfig.enabled && hostApiConfig.devices.length > 0) {
     try { remoteDevices.importBootstrap(hostApiConfig.devices); }
@@ -498,11 +500,11 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
     app.relaunch({ args: process.argv.slice(1) });
     app.quit();
   }, app.getVersion(), process.platform === 'win32' && !app.isPackaged && !process.env['ELECTRON_RENDERER_URL'] && !hostApiConfig.enabled);
-  const ledger = new RemoteCommandLedger(join(app.getPath('userData'), 'ade', 'remote', 'commands.json'),
+  const ledger = new RemoteCommandLedger(join(paths.profileDir, 'remote', 'commands.json'),
     (entry) => remoteDevices.audit(entry),
     (id, scope) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes(scope)));
   const projects = new ProjectWorkspaceService(store, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }), () => ptyManager?.list() ?? []);
-  const workspaceProvision = new RemoteWorkspaceService(store, scopes, join(app.getPath('userData'), 'ade'), () => ptyManager?.list() ?? [], execution);
+  const workspaceProvision = new RemoteWorkspaceService(store, scopes, paths.profileDir, () => ptyManager?.list() ?? [], execution);
   const conversationProjects = new ConversationProjectService(store, workspaceProvision, () => broadcastToRenderers(IPC_EVENTS.CatalogChanged, { revision: Date.now() }));
   handle(IPC.ProjectCreate, async (input) => {
     if (!store.get().settings.projectDefaults) throw new Error(translate("ade: Under Settings, save the project root folder first."));
@@ -513,12 +515,12 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   const projectBranches = new ProjectBranchService(store, projects, () => ptyManager?.list() ?? []);
   const projectGitActions = new ProjectGitService(store, projects, () => ptyManager?.list() ?? []);
   const projectPublish = new ProjectPublishService(projectGitActions);
-  const integration = new IntegrationService(store, projects, () => ptyManager?.list() ?? [], join(app.getPath('userData'), 'ade', 'integrations'));
+  const integration = new IntegrationService(store, projects, () => ptyManager?.list() ?? [], join(paths.profileDir, 'integrations'));
   integrationService = integration;
   handle(IPC.IntegrationQuery, (input) => integration.query(input, 'desktop'));
   handle(IPC.IntegrationCommand, (input) => integration.command(input, 'desktop'));
   const workbench = new RemoteWorkbenchService(store, () => ptyManager?.list() ?? [], execution, projects);
-  const resultFiles = new RunFileStore(join(app.getPath('userData'), 'ade', 'archive', 'files'));
+  const resultFiles = new RunFileStore(join(paths.profileDir, 'archive', 'files'));
   ptyManager!.setTaskFileTracker(new RunFileTracker(store, workbench, resultFiles));
   const runInspection = new RunInspectionService(store, workbench, ptyManager!, (runId) => orchestration!.report(runId), resultFiles);
   handle(IPC.ProjectFileRead, (input) => workbench.query({ ...input, operation: 'file' }));
@@ -542,12 +544,12 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   }, (id) => remoteDevices.activeDevices().some((device) => device.id === id && device.scopes.includes('terminal:control')),
   (entry) => remoteDevices.audit(entry), (state) => broadcastToRenderers(IPC_EVENTS.TerminalControlChanged, state), undefined,
   (id, selection) => deviceResources.assertSelection(id, selection),
-  new TerminalImageStore(join(app.getPath('userData'), 'ade', 'terminal-images'), execution, bytes => {
+  new TerminalImageStore(join(paths.profileDir, 'terminal-images'), execution, bytes => {
     const image = nativeImage.createFromBuffer(bytes);
     if (image.isEmpty()) throw new Error(translate("You can't read a picture. Select a PNG or JPEG."));
     return image.toPNG();
   }));
-  mobilePush = new WebPushService(new PushStore(join(app.getPath('userData'), 'ade', 'remote', 'push.json'), remoteProtection), {
+  mobilePush = new WebPushService(new PushStore(join(paths.profileDir, 'remote', 'push.json'), desktopSecrets), {
     subscribe: listener => journalChanges.subscribe(listener),
     cursor: () => orchestration!.journalCursor(),
     completed: runId => store.get().runs.some(run => run.id === runId && run.status === 'completed'),
@@ -614,7 +616,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
       usageProjects: (range) => usageOverview!.projects(range),
       conversationActions: actionService,
       deviceActive: (id) => remoteDevices.activeDevices().some((device) => device.id === id),
-      profiles: new RemoteProfileService(store, join(app.getPath('userData'), 'ade', 'photos'), (bytes) => {
+      profiles: new RemoteProfileService(store, photosDir(paths), (bytes) => {
         const source = nativeImage.createFromBuffer(bytes);
         if (source.isEmpty()) throw new Error(translate("ade: Profile picture could not be read."));
         for (const size of [256, 128, 64]) {
@@ -735,7 +737,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   handle(IPC.ProjectDefaultsSave, (input) => projectDefaults.save(input));
 
   handleWithEvent(IPC.WorkspaceBundlePickImport, async (_payload, event) => {
-    const e2eFixture = join(app.getPath('userData'), 'portable-e2e-workspace.json');
+    const e2eFixture = join(paths.userData, 'portable-e2e-workspace.json');
     let selectedPath: string | undefined;
     let kind: 'bundle' | 'profile' = 'bundle';
     if (process.env.NODE_ENV === 'test' && existsSync(e2eFixture)) {
@@ -949,7 +951,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   /* ------------------------------------------ identity + photos (Phase B2) */
 
   // Store photo bytes under userData/ade/photos/, served via ade-photo://
-  handle(IPC.PhotoImport, (req) => importPhoto(req));
+  handle(IPC.PhotoImport, (req) => importPhoto(req, photosDir(paths)));
 
   // Create category; persists via ConfigStore.
   handle(IPC.CategoryCreate, (input) => createCategory(store, input, scopes));
@@ -978,7 +980,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
   });
 
   // Create agent, workspace/worktree and memory scaffold.
-  handle(IPC.AgentCreate, (input) => createAgent(store, input, scopes));
+  handle(IPC.AgentCreate, (input) => createAgent(store, input, scopes, { baseDir: paths.profileDir }));
 
   // Resolve the agent dashboard (fixed URL or freshly minted by its command)
   // and open it origin-locked in an ADE window or the system browser.
@@ -1006,7 +1008,7 @@ export async function registerIpcHandlers(store: ConfigStore): Promise<void> {
 
   handle(IPC.AgentTemplateCreate, (input) => createAgentTemplate(store, input));
   handle(IPC.AgentTemplateDelete, ({ id }) => deleteAgentTemplate(store, id));
-  handle(IPC.AgentTemplateSpawn, (input) => spawnAgentTemplate(store, input, scopes));
+  handle(IPC.AgentTemplateSpawn, (input) => spawnAgentTemplate(store, input, scopes, { baseDir: paths.profileDir }));
   handle(IPC.RepositoryImport, ({ path, name, executionBackend }) =>
     scopes.importRepository(path, name, executionBackend),
   );

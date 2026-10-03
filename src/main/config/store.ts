@@ -47,12 +47,6 @@ function modelId(value: unknown, pattern: RegExp, label: string): void {
   }
 }
 
-/** Lazily binds Electron so tests can construct a store with an explicit path. */
-function defaultConfigPath(): string {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { app } = require('electron') as typeof import('electron');
-  return join(app.getPath('userData'), 'ade', 'config.json');
-}
 
 /** Node's fs errors embed the absolute path; keep it out of stored detail. */
 function describeError(error: unknown, filePath: string): string {
@@ -780,8 +774,10 @@ export class ConfigStore {
   private workspaceLockRelease?: () => void;
   private readonly loadFailure: ConfigLoadFailure | null;
 
-  constructor(filePath?: string) {
-    this.filePath = filePath ?? defaultConfigPath();
+  /** `filePath` is explicit (host/profilePaths.ts `configPath`); the store never asks Electron. */
+  constructor(filePath: string) {
+    if (!filePath) throw new Error('ade: ConfigStore needs an explicit config path');
+    this.filePath = filePath;
     mkdirSync(dirname(this.filePath), { recursive: true });
     if (process.platform === 'linux') {
       const directory = lstatSync(dirname(this.filePath), { bigint: true });

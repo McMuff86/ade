@@ -11,7 +11,8 @@ import { registerIpcHandlers, disposePtyManager, markCleanShutdown, mobileHostEn
 import { redactedErrorDetail } from './errors';
 import { ConfigStore } from './config/store';
 import { runPtySmoke } from './pty/smoke';
-import { registerPhotoProtocolHandler, registerPhotoProtocolScheme } from './photos';
+import { registerPhotoProtocolHandler, registerPhotoProtocolScheme } from './desktop/photoProtocol';
+import { configPath, photosDir, profilePaths } from './host/profilePaths';
 import { isSafeExternalUrl, isTrustedRendererUrl } from './security';
 import { registerRendererWindow, rendererWindows } from './rendererWindows';
 import { MainLogSink } from './logging/mainLog';
@@ -190,16 +191,18 @@ void app.whenReady().then(async () => {
     callback(desktopMicrophone.allows(contents.id, permission, details));
   });
   session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) => desktopMicrophone.allows(contents?.id, permission, details));
-  const store = new ConfigStore();
+  // One user-data directory (ADE_USER_DATA_DIR applied above) for every profile path below.
+  const paths = profilePaths(app.getPath('userData'));
+  const store = new ConfigStore(configPath(paths));
   if (store.get().settings.language) changeLocale(store.get().settings.language!);
   try {
-    await registerIpcHandlers(store);
+    await registerIpcHandlers(store, paths);
   } catch (error) {
     console.error('[ade] startup recovery failed; refusing to initialize the application:', error);
     app.quit();
     return;
   }
-  registerPhotoProtocolHandler();
+  registerPhotoProtocolHandler(photosDir(paths));
   initialized = true;
   createWindow();
 

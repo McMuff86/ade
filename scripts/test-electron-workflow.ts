@@ -653,6 +653,12 @@ async function run(): Promise<void> {
     evidencePage = page;
     await page.waitForLoadState('domcontentloaded');
     await page.locator('.agent-row', { hasText: 'E2E Shell' }).waitFor({ state: 'visible' });
+    // H1c: index.ts derives every profile path from app.getPath('userData'); the
+    // seeded agent exists only in <userData>/ade/config.json, so seeing it proves
+    // the explicit path equals the one Electron reports for this run.
+    const electronUserData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'));
+    check('profile paths: Electron userData of the run is the isolated profile and its ade/config.json is the one ADE loaded',
+      electronUserData === userData && existsSync(join(electronUserData, 'ade', 'config.json')));
     await railOrderingFlow(page, check);
     if (process.argv.includes('--rail-ordering-only')) {
       console.log(`Rail ordering: ${passed} passed, ${failed} failed`);

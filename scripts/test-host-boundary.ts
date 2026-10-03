@@ -15,8 +15,8 @@
  */
 import { importGraph } from './helpers/importGraph';
 
-/** Modules reached from the host entry on the last green run (H1a: 102, H1b: 133). Raise, never lower. */
-const MIN_HOST_MODULES = 133;
+/** Modules reached from the host entry on the last green run (H1a: 102, H1b: 133, H1c: 142). Raise, never lower. */
+const MIN_HOST_MODULES = 142;
 const HOST_ENTRY = 'src/main/host/index.ts';
 const FORBIDDEN = ['electron'];
 /** Desktop-only modules: Electron-free at runtime by themselves, but the host reaches clients only through ports. */

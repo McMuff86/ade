@@ -6,7 +6,6 @@
  * Persistence goes through the existing atomic ConfigStore.
  */
 
-import { app } from 'electron';
 import { navigationGroup } from '../shared/categoryNavigation';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -45,12 +44,8 @@ export interface IdentityConfigPort {
 }
 
 export interface IdentityOptions {
-  /** Test/recovery override; production identities live below Electron userData. */
-  baseDir?: string;
-}
-
-function adeDir(): string {
-  return join(app.getPath('userData'), 'ade');
+  /** Profile directory (`<userData>/ade`); identities live in `agents/<id>/` below it. */
+  baseDir: string;
 }
 
 export async function createCategory(
@@ -173,7 +168,7 @@ export async function createAgent(
   store: IdentityConfigPort,
   input: AgentCreateInput,
   scopes: RepositoryScopeService,
-  options: IdentityOptions = {},
+  options: IdentityOptions,
 ): Promise<Agent> {
   const name = input.name.trim();
   if (!name) throw new Error('ade: agent name is required');
@@ -183,7 +178,7 @@ export async function createAgent(
   if (!category) throw new Error(`ade: category not found "${input.categoryId}"`);
 
   const id = randomUUID();
-  const base = options.baseDir ?? adeDir();
+  const base = options.baseDir;
   const homeWorkspaceDir = join(base, 'agents', id, 'workspace');
   const memoryDir = join(base, 'agents', id, 'memory');
   mkdirSync(homeWorkspaceDir, { recursive: true });
@@ -446,7 +441,7 @@ export async function spawnAgentTemplate(
   store: IdentityConfigPort,
   input: AgentTemplateSpawnInput,
   scopes: RepositoryScopeService,
-  options: IdentityOptions = {},
+  options: IdentityOptions,
 ): Promise<Agent> {
   const template = store.get().agentTemplates.find((candidate) => candidate.id === input.templateId);
   if (!template) throw new Error(`ade: agent template not found "${input.templateId}"`);
