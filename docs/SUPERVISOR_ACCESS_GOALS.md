@@ -42,8 +42,13 @@ spätere Goals und werden aus realen Fällen abgeleitet.
   Sitzungen, erlaubte Pfade und Branches, ausgeschlossene Aktionen,
   `grantedAt`/`revokedAt`. Erteilen und Widerrufen sind Journal-Ereignisse und
   werden in `RunArchive` und `applyRetention` mitgeführt.
-- [ ] Erteilen und Widerrufen nur durch den Benutzer, auf Desktop oder Tablet;
-  jede Änderung ist auditiert.
+- [ ] Erteilen nur durch den Benutzer und **nur am Desktop** (Prinzipal
+  `desktop-local`), wie die Geräteverwaltung (Goal 34.6, E7). Widerrufen
+  zusätzlich vom Tablet, weil ein Widerruf Rechte nur verengt. Dafür gibt es
+  einen eigenen Kanal in `REMOTE_COMMAND_CHANNELS` mit `runs:write`,
+  Gerätesignatur, Idempotenz und Audit. Ein Erteilen über diesen oder einen
+  anderen Remote-Kanal wird abgelehnt (Negativkontrolle). Jede Änderung ist
+  auditiert.
 - [ ] Die empfangende Sitzung erhält die Vollmacht über den verwalteten
   Aufgabenkontext, nicht über Dateien im geleasten Repository.
 
@@ -63,16 +68,26 @@ Hängt von Goal 34.6 H3 ab.
 
 ### 35.3 — Durchsetzung am Commit
 
-- [ ] Ein aufgezeichneter Commit einer bevollmächtigten Sitzung wird gegen die
-  erlaubten Pfade und Branches geprüft. Eine Verletzung wird sichtbar gemeldet
-  und nie stillschweigend durchgelassen.
+- [ ] **Verwaltete Aufgaben:** Der von ADE aufgezeichnete Commit
+  (`StructuredTaskResult` → ADE-Commit) einer bevollmächtigten Aufgabe wird
+  gegen die erlaubten Pfade und Branches geprüft. Eine Verletzung wird sichtbar
+  gemeldet und nie stillschweigend durchgelassen.
+- [ ] **Interaktive CLI-Sitzungen:** ADE zeichnet deren Commits heute nicht auf.
+  Die Prüfung gilt für sie erst, wenn eine minimale Beobachtung des
+  Worktree-`HEAD` vorhanden ist. Diese Beobachtung ist eine ausdrückliche
+  Voraussetzung und eine Ausnahme von der Abgrenzung oben: nur `HEAD` und
+  geänderte Pfade je Commit, kein allgemeiner Beobachtungsstrom. Bis dahin ist
+  die Durchsetzung für interaktive Sitzungen als nicht unterstützt
+  dokumentiert.
 
 ## Abnahme
 
 - Eine Session ohne Vollmacht erhält Aufsichts-Nachrichten nur als Eingabe;
   ADE protokolliert kein Recht.
-- Mit Vollmacht: Ein Commit ausserhalb der erlaubten Pfade wird gemeldet.
-  Negativkontrolle: Derselbe Commit innerhalb der Pfade wird nicht gemeldet.
+- Mit Vollmacht (zunächst verwaltete Aufgaben): Ein Commit ausserhalb der
+  erlaubten Pfade wird gemeldet. Negativkontrolle: Derselbe Commit innerhalb der
+  Pfade wird nicht gemeldet.
+- Eine Vollmacht lässt sich vom Tablet aus nicht erteilen, wohl aber widerrufen.
 - Push, Löschen oder Aktivierung über den Aufsichts-Prinzipal werden auch mit
   Vollmacht abgelehnt.
 - Nach dem Widerruf werden weitere Befehle abgelehnt, und die Sitzung erhält
