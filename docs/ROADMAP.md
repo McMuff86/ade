@@ -15,7 +15,7 @@ implementiert und geprüft; letztes vollständiges `pnpm verify` (23:19:14 CEST)
 | 34.3 Betrieb | `pnpm activate` mit Gate/Backup/Rollback, Opt-ins für Autostart/Tray/Wachhalten, Unterbrechungsursache (Aktivierung **21/0**, Lebenszyklus **24/0**) | echter Rechnerneustart, physische Anmeldung/Sperre, Windows |
 | 34.4 Entscheidungen | Gemeinsamer Einstieg mit Aktionen nach Fähigkeit, gebundenen Eingaben, Entwürfen (**56/0**) | echte Codex-Rückfrage über die Ansicht, Windows, Tablet |
 | 34.5 Push | Web Push für bestätigte Run-Ereignisse, Testsperre mit Countdown, `renotify`, Burst-Grenze (**74/0**, Browser **33/0**); physischer Testempfang bestätigt | Empfang bei gesperrtem Tablet, echte Aufgabenereignisse am Gerät, Windows |
-| 34.6 Unabhängiger Host | Architekturentscheid angenommen und in ARCHITECTURE/SPEC übernommen ([HOST_ARCHITECTURE_DECISION](HOST_ARCHITECTURE_DECISION.md), 3. Oktober); kein Code | extern geprüft am 3. Oktober (R1–R8 angenommen, R9 abgelehnt); Spike H0 abgeschlossen ([Protokoll](research/host/H0_SPIKE_2026-10-03.md)); H1 (Composition Root getrennt) abgeschlossen; nächster Schritt H2, danach H3–H7 |
+| 34.6 Unabhängiger Host | Architekturentscheid angenommen; H0/H1 abgeschlossen; H2a Tresor-Kern und Migrationsempfänger implementiert, noch ohne produktive Verdrahtung ([H2-Schritte](HOST_SECRETS_H2.md)) | H2b nativer Linux-Schlüsselbund, H2c Altstore-Migration/Konsumenten, H2d sichtbare Zustände/Abnahme; danach H3–H7. Desktop-Beenden stoppt weiterhin alle PTYs |
 
 Commits der Stabilisierung: `5ea398f` (Push-Countdown), `198e39b` (34.4),
 `e5fda7f` (34.3), `2dde188` (34.5). Persönliche Aktivierung dieser Commits

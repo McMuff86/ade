@@ -2,10 +2,24 @@
 
 Kurzüberblick (1. Oktober 2026, abends): Goal 34.1–34.5 unter nativem Linux
 implementiert und geprüft, letztes `pnpm verify` **28/0/16 nicht gemessen**,
-**106 Suiten / 4.541 Checks**; 34.6 nicht begonnen. Windows-, physische Tablet-
+**106 Suiten / 4.541 Checks**; 34.6 damals nicht begonnen (Fortschritt vom
+3. Oktober siehe unten). Windows-, physische Tablet-
 und weitere native Adapterabnahmen offen. Übersicht je Teilziel:
 [ROADMAP](ROADMAP.md#aktueller-stand-1-oktober-2026-abends). Abschnitte unten
 sind datiert; ältere Abschnitte nennen den damaligen Stand.
+
+## Goal 34.6 H2a: isolierter Secrets-Tresor-Kern (3. Oktober 2026)
+
+H0/H1 abgeschlossen; H2 begonnen. `HostSecretVault` implementiert AES-256-GCM,
+begrenzte atomare Speicherung, Schlüsselzustände und einen wiederaufnehmbaren
+Migrationsempfänger. **Noch nicht produktiv verdrahtet:** tatsächlicher
+Secret-Service-Anschluss, Altstore-Sender, UI und Startblockaden folgen.
+Produktiv bleiben die drei bisherigen safeStorage-Stores bestehen; der
+unabhängige Host-Prozess beginnt erst mit H3. Neue Suite **59/0** unter Linux,
+Host-Grenze **215 Module / 18 Checks**. Windows und nativer Schlüsselbund in
+H2a nicht gemessen. Vertrag und nächste Schritte: [HOST_SECRETS_H2](HOST_SECRETS_H2.md).
+Finales `pnpm verify`: **30/0/16 nicht gemessen**, **113 Suiten / 4.714 Checks**;
+Details und Betriebszustand: [HANDOFF](HANDOFF.md).
 
 ## Gelöschte Projektordner und wiederholbarer Projektstart (2. Oktober 2026)
 

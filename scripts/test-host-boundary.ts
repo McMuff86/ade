@@ -17,8 +17,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { importGraph } from './helpers/importGraph';
 
-/** Modules reached from the host entry on the last green run (H1a: 102, H1b: 133, H1c: 142, H1d: 145, H1f: 210, H1g: 213). Raise, never lower. */
-const MIN_HOST_MODULES = 213;
+/** Modules reached from the host entry on the last green run (H1a: 102, H1b: 133, H1c: 142, H1d: 145, H1f: 210, H1g: 213, H2a: 215). Raise, never lower. */
+const MIN_HOST_MODULES = 215;
 const HOST_ENTRY = 'src/main/host/index.ts';
 const FORBIDDEN = ['electron'];
 /** Desktop-only modules: Electron-free at runtime by themselves, but the host reaches clients only through ports. */

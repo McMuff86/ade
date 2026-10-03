@@ -36,6 +36,7 @@ interface Suite {
 const SUITES: Suite[] = [
   { id: 'host-boundary', script: 'test-host-boundary.ts', floors: { linux: 18 } },
   { id: 'host-handlers', script: 'test-host-handlers.ts', floors: { linux: 10 } },
+  { id: 'host-secret-vault', script: 'test-host-secret-vault.ts', floors: { linux: 59 } },
   { id: 'profile-paths', script: 'test-profile-paths.ts', floors: { linux: 16 } },
   { id: 'desktop-clients', script: 'test-desktop-clients.ts', floors: { linux: 13 } },
   { id: 'web-push', script: 'test-web-push.ts', floors: { linux: 74 } },

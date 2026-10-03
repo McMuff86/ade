@@ -6,7 +6,11 @@ Bis zur Umsetzung gilt unverändert: Der Electron-Desktop ist der einzige
 Ausführungshost, und „ADE beenden“ beendet alle Sitzungen. Beschlossenes Ziel
 (Begründung und Etappen: [HOST_ARCHITECTURE_DECISION](HOST_ARCHITECTURE_DECISION.md);
 technischer Vertrag: ARCHITECTURE, „Decision: independent ADE host“). Am
-3. Oktober extern geprüft; Spike H0 ist freigegeben.
+3. Oktober extern geprüft; H0 und H1 sind abgeschlossen. H2a implementiert
+den isoliert geprüften Tresor-Kern und Migrationsempfänger, noch ohne
+produktive Verdrahtung. Schlüsselbund-Anschluss, Migration der bestehenden
+Stores, sichtbare Zustände und Startblockaden bleiben offen; das aktuelle
+Produktverhalten ändert sich dadurch nicht ([H2-Schritte](HOST_SECRETS_H2.md)).
 
 - Ein ADE-Host pro Benutzer und Profil führt alle Agenten, Terminals, Runs,
   Secrets und die Tablet-Freigabe aus. Desktop und Tablet sind gleichwertige

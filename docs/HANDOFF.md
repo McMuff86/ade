@@ -3,6 +3,46 @@
 Neuer Kontext für Goal 34.6: zuerst [Kontexthandoff 3. Oktober](CONTEXT_HANDOFF_2026-10-03.md)
 lesen (Haltepunkt, offene Benutzerentscheide, Code-Landkarte H1, Stolpersteine).
 
+## Goal 34.6 H2a: Tresor-Kern und Migrationsempfänger (3. Oktober 2026, spät abends)
+
+Der Benutzer hat die Fortsetzung beauftragt und ausdrücklich bestätigt:
+selbstständig **ohne Orchestrator** weiterarbeiten. Umsetzungsschritt und
+Folgearbeit: [HOST_SECRETS_H2](HOST_SECRETS_H2.md).
+
+- Neu: `src/main/host/secrets/HostSecretVault.ts` und `vaultFile.ts`:
+  AES-256-GCM, profilgebundene Authentifizierung, begrenzte private Dateien,
+  fsync/atomarer Austausch/Read-back, Zustände und fail-closed Schlüsselverlust.
+  Migrationseinträge werden einzeln dauerhaft bestätigt, nach Abbruch
+  idempotent wieder angenommen und nur als vollständiger Satz freigegeben.
+- Fokussierter Linux-Nachweis: `test-host-secret-vault.ts` **59/0**;
+  `host-boundary` **18/0**, Mindestzahl **215 Module**. Neue Suite in
+  `run-suites.ts`, damit im `suites`-Schritt von `pnpm verify`.
+- Grenzen: OS-Port simuliert; kein nativer Secret-Service-/DPAPI-Nachweis,
+  kein Altdatei-Decoder, keine UI, keine produktive Verdrahtung. H2 ist offen.
+  Der Empfänger erhält keine Pfade zu alten Stores; seine Abbruchkontrolle
+  belegt deren Unverändertheit im Fixture, nicht bereits die komplette
+  safeStorage-Migration. Bestehende Stores und Launchpfade bleiben produktiv.
+- Arbeitsstand: Änderungen im Arbeitsbaum auf Basis `95d8a8c`, nicht committet,
+  nicht gepusht, nicht persönlich aktiviert. Kein persönlicher Schlüsselbund
+  oder Dienst verändert. Test-Builds ausschliesslich unter `test-results/`.
+
+Vollständiger Verify-Abschluss auf dem finalen Code-Stand, 3. Oktober
+23:39–23:42 CEST: `MISE_PNPM_VERSION=9.15.9 pnpm verify`, **30 bestanden /
+0 Fehler / 16 nicht gemessen** (Windows), **113 Suiten / 4.714 Checks**,
+3 min 31 s. Alle drei TypeScript-Projekte, beide Builds und sämtliche unter
+Linux gemessenen Electron-/Browser-Flows grün, einschliesslich isolierter
+Aktivierung/Rollback **21/0** und visueller Regression **22/0**.
+Bericht: `test-results/verify/report.json`. Der frühere Lauf war ebenfalls
+grün; nach dem zusätzlichen Schutz gegen gelöschte Tresordateien wurde der
+gesamte Lauf wiederholt. `out/main/index.js` behält den Zeitstempel
+2026-10-02 12:51:14; die persönliche Instanz wurde nicht aktiviert.
+
+Nächster Umsetzungsschritt H2b: profilgebundener nativer Linux-Schlüsselbund,
+`Locked`-Abfrage, passwortlose Diagnose, begrenzte Aufrufe und Wiederanlauf;
+isolierte D-Bus-Negativkontrollen. Danach H2c Migration/Konsumenten und H2d UI
+mit echten Startblockaden. Der Reboot-Nachweis bleibt vom Benutzerneustart
+abhängig; der Spike-Dienst wurde nicht zurückgebaut.
+
 ## Goal 34.6 H1: Composition Root getrennt, abgeschlossen (3. Oktober 2026)
 
 Ergebnis: Die gesamte Komposition liegt in `src/main/host/composeHost.ts`

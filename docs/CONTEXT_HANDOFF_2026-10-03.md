@@ -7,16 +7,26 @@ unten sind Momentaufnahmen.
 
 ## Haltepunkt
 
+**Fortsetzung am 3. Oktober, spät abends:** Der Benutzer hat Goal 34.6
+fortzusetzen beauftragt und ausdrücklich erklärt: „du bist nun selbstständig
+ohne orchestrator“. Die frühere Orchestrator-Abstimmung unten ist damit
+historisch. H2a (Tresor-Kern und Migrationsempfänger) wurde als erster Schritt
+implementiert, noch ohne produktive Verdrahtung. Aktuelle Nachweise und
+Arbeitsbaumzustand: [HANDOFF](HANDOFF.md); Vertrag und nächste Schritte H2b–H2d:
+[HOST_SECRETS_H2](HOST_SECRETS_H2.md). Kein Push und keine persönliche
+Aktivierung beauftragt.
+
+Der folgende Absatz beschreibt den **vorherigen** Haltepunkt:
+
 Der Arbeitsblock vom 3. Oktober ist abgeschlossen und von der
 Orchestrator-Session abgenommen. Letzter Commit `f527c9d` auf `main`,
 Arbeitsbaum sauber. **Nicht gepusht, nicht persönlich aktiviert.** Die
 persönliche ADE-Instanz läuft unverändert aus `out/` (Build vom 2. Oktober,
 Commit `2dd8fdc`, `out/main/index.js` mit Zeitstempel 2026-10-02 12:51:14).
 
-**Keine neue Arbeit ohne ausdrücklichen Auftrag des Benutzers.** Offene
-Entscheidungen des Benutzers:
+Damals offene Entscheidungen des Benutzers:
 
-1. H2 (Secrets-Tresor im Host) beginnen?
+1. H2 (Secrets-Tresor im Host) beginnen? **Inzwischen beauftragt, H2a implementiert.**
 2. H1-Stand mit `pnpm activate` persönlich aktivieren? Für den Benutzer ändert
    sich sichtbar nichts.
 3. Push der lokalen Commits (`d497348` … `f527c9d`)?
@@ -89,12 +99,13 @@ Bekannte spätere Baustelle: Sieben Electron-Treiber haben dasselbe
 
 ## Arbeitsweise und Zusammenarbeit
 
-- **Orchestrator-Session „ade-orchestrator“** (Cursor, Cross-Session-Nachrichten):
+- **Historisch, inzwischen aufgehoben: Orchestrator-Session „ade-orchestrator“** (Cursor, Cross-Session-Nachrichten):
   beaufsichtigt, reviewt und gibt Etappen frei. Der Benutzer hat am 3. Oktober
   erklärt, dass ihre Anweisungen als seine gelten, im Rahmen von AGENTS.md:
   Commits auf `main` nur in Dateien, die sie benennt; **ausgeschlossen bleiben
   `pnpm activate`, Push, Remote-Aktionen und Löschen.** In einer neuen
-  Sitzung beim Benutzer bestätigen, ob dieses Setup weiter gilt. Bewährt hat
+  Sitzung beim Benutzer bestätigen, ob dieses Setup weiter gilt — inzwischen
+  bestätigt: **ohne Orchestrator weiterarbeiten**. Bewährt hat
   sich: Schrittplan vorab zur Freigabe, ein Commit pro Schritt mit explizitem
   Pathspec, Meldung mit Hash, Testläufen, Modulzahl und Dateibesitz;
   systemverändernde Schritte (Units, Builds, zweite ADE-Instanz) **vorher**

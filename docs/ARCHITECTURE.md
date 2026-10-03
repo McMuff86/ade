@@ -1689,7 +1689,23 @@ channel policy and audit line, the host-operation fence for non-reads,
 the host in plain Node and proves that every `CHANNEL_POLICY` channel has
 exactly one handler, host or desktop. ADE still runs as one Electron process
 and quitting it still stops all PTYs; the independent host process starts with
-H3. Next stage: H2 (host-owned secret vault).
+H3. H2a now adds the uncomposed secret-vault core (below); H2 remains incomplete.
+
+**H2a secret-vault core (3 October 2026).** `host/secrets/HostSecretVault.ts`
+implements a bounded AES-256-GCM store and a resumable migration receiver over
+an injected profile-scoped OS-keyring port. It authenticates the format and
+profile identity, encrypts values and metadata together, rejects symlinks and
+hardlinks, fences writes with the previous file fingerprint and acknowledges
+migration entries only after fsync/rename and authenticated read-back. Missing
+keys for existing files and missing files for existing keys fail closed.
+`refresh()` drops cached access before checking `locked`/`unavailable`; partial
+migrations block ordinary reads and writes until the expected set is confirmed.
+The host import-graph floor is now 215 modules. This core is exported from the
+host entry but is **not composed into the application**: desktop safeStorage,
+existing stores and launch behavior remain unchanged. Native Secret Service,
+the legacy-store sender, UI diagnostics and credential-dependent launch gating
+remain H2b–H2d. Detailed contract, measured evidence and boundaries:
+[HOST_SECRETS_H2](HOST_SECRETS_H2.md).
 
 - **Ownership (E1).** One long-lived host per OS user and profile owns
   `PtyManager`, `CodexAppServerProcess`, orchestration, `RunCoordinator`, all
