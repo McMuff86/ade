@@ -1,0 +1,14 @@
+[Unit]
+Description=ADE Goal 34.6 spike H0: boot-time Secret Service probe (logging only)
+Documentation=file:///home/mcmuff/Work/ade/docs/research/host/H0_SPIKE_2026-10-03.md
+# Same default ordering a future host unit would get (After=basic.target).
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /home/mcmuff/Work/ade/scripts/spikes/h0/boot-probe.sh
+TimeoutStartSec=90
+# No restart: one observation per login.
+Restart=no
+
+[Install]
+WantedBy=default.target
