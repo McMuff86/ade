@@ -164,6 +164,8 @@ export interface ApplicationOptions {
   conversations?: () => ConversationService;
   conversationActions?: () => CoordinatorActionService;
   supervision?: () => SupervisionService;
+  /** Close the notice of one interrupted session record; false when there was nothing to close. */
+  dismissInterruption?: (sessionId: string) => boolean;
   dictation?: DictationJobs;
   speech?: RemoteSpeechService;
   replies?: ReplySpeechService;
@@ -1135,6 +1137,45 @@ export class AdeApplicationService {
     return result.value;
   }
 
+  /** Session records of projects, agents and workspaces this device may see. */
+  private visibleBookends(principal: RemotePrincipal, config: AdeConfig): AdeConfig['sessionBookends'] {
+    return config.sessionBookends.filter(bookend => {
+      if (bookend.repositoryId && !this.resources.repository(principal, bookend.repositoryId)) return false;
+      if (bookend.agentId && !this.resources.agent(principal, bookend.agentId)) return false;
+      if (bookend.projectWorkspaceId) {
+        const workspace = config.projectWorkspaces.find(item => item.id === bookend.projectWorkspaceId);
+        if (!workspace || !this.resources.repository(principal, workspace.repositoryId)) return false;
+      }
+      return true;
+    });
+  }
+  /** History rows carry a per-device opaque id; PTY session ids never reach the wire. */
+  private historyRowId(principal: RemotePrincipal, rowId: string): string {
+    return `history:${createHash('sha256').update(`${principal.id}:${rowId}`).digest('hex').slice(0, 32)}`;
+  }
+
+  /**
+   * Close the notice of one interrupted session the device was shown. Same grant
+   * as seeing it (terminal control), signed, idempotent and audited through the
+   * ledger. Nothing is resumed and the record itself stays.
+   */
+  async dismissAttention(context: RemoteCommandContext, payload: unknown): Promise<{ dismissed: boolean; replayed: boolean }> {
+    const ledger = this.options.administration?.ledger; const dismiss = this.options.dismissInterruption;
+    if (!ledger || !dismiss || !this.options.terminals) throw new RemoteApiError(404, 'not_found');
+    try {
+      const input = requireRecord(payload, 'request'); requireKeys(input, ['id'], 'request');
+      if (typeof input.id !== 'string' || !/^history:[a-f0-9]{32}$/.test(input.id)) invalidPayload('id must name a recorded interruption');
+      const id = input.id;
+      const receipt = await ledger.execute(context, 'attention:dismiss', 'terminal:control', { id }, () => {
+        const bookend = this.visibleBookends(context.principal, this.store.get())
+          .find(item => item.exitReason === 'interrupted' && item.acknowledgedAt === undefined && this.historyRowId(context.principal, `history:${item.id}`) === id);
+        if (!bookend) throw new RemoteApiError(404, 'not_found');
+        return { dismissed: dismiss(bookend.id) };
+      });
+      return { ...receipt.value, replayed: receipt.replayed };
+    } catch (error) { if (error instanceof RemoteApiError) throw error; throw new RemoteApiError(422, 'command_rejected', redactedWireMessage(error)); }
+  }
+
   async attention(principal: RemotePrincipal): Promise<MobileAttentionSnapshot> {
     const authorize = () => {
       if (principal.kind !== 'device' || principal.proof !== 'device-signature' || !principal.scopes.has('read')) throw new RemoteApiError(401, 'device_proof_required');
@@ -1148,15 +1189,7 @@ export class AdeApplicationService {
     if (terminalAccess) this.options.administration!.ledger.permits({ principal, requestId: 'attention', idempotencyKey: undefined }, 'terminal:control');
     for (const item of sessions) this.resources.assertSelection(principal, { ...item.wire, profileId: item.wire.launchProfileId });
     const config = this.store.get();
-    const filtered = { ...config, sessionBookends: terminalAccess ? config.sessionBookends.filter(bookend => {
-      if (bookend.repositoryId && !this.resources.repository(principal, bookend.repositoryId)) return false;
-      if (bookend.agentId && !this.resources.agent(principal, bookend.agentId)) return false;
-      if (bookend.projectWorkspaceId) {
-        const workspace = config.projectWorkspaces.find(item => item.id === bookend.projectWorkspaceId);
-        if (!workspace || !this.resources.repository(principal, workspace.repositoryId)) return false;
-      }
-      return true;
-    }) : [] };
+    const filtered = { ...config, sessionBookends: terminalAccess ? this.visibleBookends(principal, config) : [] };
     // Handoff summaries are exposed through the existing supervision read grant.
     const briefing = principal.scopes.has('workspace:read') ? this.options.supervision?.().briefing() : undefined;
     if (briefing) {
@@ -1166,13 +1199,13 @@ export class AdeApplicationService {
     }
     // Write actions mirror the grants the corresponding command routes enforce again.
     const snapshot = attentionOverview(filtered, this.runs(undefined, principal), sessions.map(item => item.session), briefing, Date.now(), {
-      runsWrite: principal.scopes.has('runs:write'), terminalWrite: terminalAccess,
+      runsWrite: principal.scopes.has('runs:write'), terminalWrite: terminalAccess, dismiss: terminalAccess && !!this.options.dismissInterruption,
       prompt: sessionId => this.options.terminals!.attentionPrompt(principal.id, sessionId) });
     return { ...snapshot, rows: snapshot.rows.map(row => {
       const wire = row.target?.kind === 'session' ? sessions.find(item => item.session.id === row.target!.id)?.wire : undefined;
       return { ...row,
         id: row.kind === 'session' ? `session:${wire!.id}` : row.kind === 'history'
-          ? `history:${createHash('sha256').update(`${principal.id}:${row.id}`).digest('hex').slice(0, 32)}` : row.id,
+          ? this.historyRowId(principal, row.id) : row.id,
         title: redactForWire(row.title, 200), project: row.project === null ? null : redactForWire(row.project, 200),
         target: wire ? { kind: 'session' as const, id: wire.id } : row.target };
     }) };

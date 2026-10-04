@@ -1182,6 +1182,12 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       stringValue(channel, request.prompt, 'prompt', { max: 8_000 });
       return;
     }
+    case IPC.AttentionDismiss: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['id']);
+      if (typeof request.id !== 'string' || !/^history:[A-Za-z0-9_.:-]{1,128}$/.test(request.id)) invalid(channel, 'id must name a recorded interruption');
+      return;
+    }
     case IPC.RunTaskReply: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['runId', 'taskId', 'prompt', 'commandId']);

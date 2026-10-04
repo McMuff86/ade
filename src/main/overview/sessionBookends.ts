@@ -46,6 +46,17 @@ export function interruptOrphanBookends(
   return changed ? next : (bookends as SessionBookend[]);
 }
 
+/** Close the notice of an interrupted session. Only an interrupted, not yet acknowledged record changes. */
+export function acknowledgeInterruptedBookend(bookends: readonly SessionBookend[], sessionId: string, now: number): SessionBookend[] {
+  let changed = false;
+  const next = bookends.map((bookend) => {
+    if (bookend.id !== sessionId || bookend.exitReason !== 'interrupted' || bookend.acknowledgedAt !== undefined) return bookend;
+    changed = true;
+    return { ...bookend, acknowledgedAt: now };
+  });
+  return changed ? next : (bookends as SessionBookend[]);
+}
+
 export function bookendActivityAt(bookend: SessionBookend): number {
   return bookend.endedAt ?? bookend.startedAt;
 }

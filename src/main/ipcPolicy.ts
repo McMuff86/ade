@@ -99,6 +99,7 @@ export const CHANNEL_POLICY: Readonly<Record<InvokeChannel, ChannelPolicy>> = {
   'config:get': shared,
   'hostOperation:get': read,
   'attention:get': read,
+  'attention:dismiss': mutate,
   'hostOperation:change': host,
   'projectDefaults:get': read,
   'projectDefaults:save': { ...mutate, audit: true },

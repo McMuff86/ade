@@ -232,6 +232,8 @@ export interface SessionBookend {
   exitReason?: SessionBookendExitReason;
   /** Only with `exitReason: 'interrupted'`. */
   interruption?: SessionInterruptionCause;
+  /** When the user closed the interruption notice. The record stays as evidence; the overview stops listing it. */
+  acknowledgedAt?: number;
 }
 
 /** The ADE-started foreground invocation, separate from its surviving PTY shell. */

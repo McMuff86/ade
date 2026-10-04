@@ -112,5 +112,18 @@ void (async () => {
   check('after the operator checked the terminal the text unlocks without a delivery identity', released.status === 'idle' && !released.attempt && released.text === 'Neu');
   mode = 'ok'; released = await deliverInstruction(released, send, newId);
   check('the next send after release is a new delivery', sent.at(-1)![1] === 'id-3' && released.status === 'delivered' && released.replayed === false);
-  console.log(`Attention: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;
+  {
+  const { acknowledgeInterruptedBookend } = await import('../src/main/overview/sessionBookends');
+  const lost = { id: 'lost-1', agentName: 'Lost', runtime: 'codex' as const, repositoryId: null, repositoryName: null, startedAt: 1, endedAt: 2, exitReason: 'interrupted' as const };
+  const withLost = { ...config, sessionBookends: [lost, { ...lost, id: 'ended-1', exitReason: 'exit' as const }] };
+  const listed = attentionOverview(withLost, [], []).rows.find(row => row.id === 'history:lost-1');
+  check('an interrupted record is listed, and is closable only for a caller that may close it', !!listed && listed.dismissible === undefined
+    && attentionOverview(withLost, [], [], undefined, 99, { runsWrite: false, terminalWrite: false, dismiss: true, prompt: () => 'unsupported' }).rows.find(row => row.id === 'history:lost-1')?.dismissible === true);
+  const acknowledged = acknowledgeInterruptedBookend(withLost.sessionBookends, 'lost-1', 50);
+  check('closing acknowledges only the interrupted record and keeps it', acknowledged[0]!.acknowledgedAt === 50 && acknowledged[0]!.exitReason === 'interrupted' && acknowledged[1]!.acknowledgedAt === undefined && acknowledged.length === 2);
+  check('an acknowledged interruption is no longer listed', !attentionOverview({ ...withLost, sessionBookends: acknowledged }, [], []).rows.some(row => row.kind === 'history'));
+  check('closing again, a normally ended or an unknown session changes nothing', acknowledgeInterruptedBookend(acknowledged, 'lost-1', 60) === acknowledged
+    && acknowledgeInterruptedBookend(withLost.sessionBookends, 'ended-1', 60) === withLost.sessionBookends && acknowledgeInterruptedBookend(withLost.sessionBookends, 'nope', 60) === withLost.sessionBookends);
+}
+console.log(`Attention: ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;
 })();

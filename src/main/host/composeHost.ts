@@ -93,6 +93,7 @@ import { importPhoto } from '../photos';
 import { createAgent, createAgentTemplate, createCategory, deleteAgentTemplate, deleteCategory, moveAgent, reorderCategories, spawnAgentTemplate, updateAgent, updateCategory } from '../identity';
 import { readTaskActivity } from '../orchestration/MailboxService';
 import { projectOverview } from '../overview/projectOverview';
+import { acknowledgeInterruptedBookend } from '../overview/sessionBookends';
 import { attentionOverview } from '../overview/attentionOverview';
 import { buildProfileImportBundle } from '../portability/ProfileImportPreview';
 import { createGuard, type HostHandler } from './handlers';
@@ -427,6 +428,7 @@ export async function composeHost(store: ConfigStore, ports: HostPorts) {
         submitTask: (input) => runCoordinator!.submitSingleTask(input),
         replyTask: (input) => runCoordinator!.replySingleTask(input),
       },
+      dismissInterruption: (sessionId) => dismissInterruption(sessionId),
       changes: journalChanges,
       commandsEnabled: () => (hostApiConfig.enabled || mobileAccess?.commandsEnabled() === true) && remoteDevices.activeDevices().length > 0,
       audit: (entry) => remoteDevices.audit(entry),
@@ -453,6 +455,13 @@ export async function composeHost(store: ConfigStore, ports: HostPorts) {
         console.error('[ade] host API failed to start:', error);
       });
   }
+  /** Close the notice of one interrupted session; the record itself stays as evidence. */
+  const dismissInterruption = (sessionId: string): boolean => {
+    const current = store.get().sessionBookends;
+    const next = acknowledgeInterruptedBookend(current, sessionId, Date.now());
+    if (next === current) return false;
+    store.save({ sessionBookends: next }); return true;
+  };
   runCoordinator.connect(
     (agentId, prompt, dispatchId, runTaskId, repositoryId, workspaceBindingId, authorize) =>
       ptyManager!.create(
@@ -948,8 +957,9 @@ export async function composeHost(store: ConfigStore, ports: HostPorts) {
   });
 
   handle(IPC.OverviewGet, () => projectOverview(store.get(), ptyManager!.list()));
+  handle(IPC.AttentionDismiss, (input) => ({ dismissed: dismissInterruption(input.id.slice('history:'.length)) }));
   handle(IPC.AttentionGet, () => attentionOverview(store.get(), orchestration!.summarize(), ptyManager!.list(), supervisionService().briefing(), Date.now(), {
-    runsWrite: true, terminalWrite: true, prompt: (sessionId) => {
+    runsWrite: true, terminalWrite: true, dismiss: true, prompt: (sessionId) => {
       if (!remoteTerminals!.desktopMayWrite(sessionId)) return 'other-device';
       const capability = remoteTerminals!.desktopPromptCapability(sessionId);
       return capability.available ? 'available' : capability.unsupported ? 'unsupported' : 'not-ready';

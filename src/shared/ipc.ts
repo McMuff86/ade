@@ -180,6 +180,7 @@ export const IPC = {
   RuntimeDiagnose: 'runtime:diagnose',
   OverviewGet: 'overview:get',
   AttentionGet: 'attention:get',
+  AttentionDismiss: 'attention:dismiss',
   RunGet: 'run:get',
   RunGetSummary: 'run:getSummary',
   RunEvents: 'run:events',
@@ -698,6 +699,7 @@ export interface IpcInvokeMap {
   'config:get': { req: void; res: AdeConfig };
   'hostOperation:get': { req: void; res: import('./hostOperation').HostOperationStatus };
   'attention:get': { req: void; res: import('./attention').AttentionSnapshot };
+  'attention:dismiss': { req: { id: string }; res: { dismissed: boolean } };
   'hostOperation:change': { req: import('./hostOperation').HostOperationChange; res: import('./hostOperation').HostOperationStatus };
   'projectDefaults:get': { req: void; res: import('./projectDefaults').ProjectDefaultsView };
   'projectDefaults:save': { req: import('./projectDefaults').ProjectDefaultsInput; res: import('./projectDefaults').ProjectDefaultsView };

@@ -75,14 +75,14 @@ type Route =
   | { kind: 'runFiles' | 'runFile'; runId: string; taskId?: string; fileId?: string }
   | { kind: 'projectQuery' | 'projectCommand' | 'projectMembership' | 'projectRemoveMissing' }
   | { kind: 'speechQuery' | 'speechCommand' | 'terminalSpeech' }
-  | { kind: 'terminalSessions' | 'attention' | 'notificationStatus' | 'notificationCommand' }
+  | { kind: 'terminalSessions' | 'attention' | 'attentionDismiss' | 'notificationStatus' | 'notificationCommand' }
   | { kind: 'supervisionQuery' | 'supervisionCommand' }
   | { kind: 'conversationQuery' | 'conversationCommand' | 'conversationDictation' | 'conversationActionsQuery' | 'conversationActionsCommand' }
   | { kind: 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' }
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'notificationCommand' | 'diagnosticsQuery' | 'usageOverview' | 'usageProjects' | 'organizerQuery' | 'organizerCommand' | 'organizerDictation' | 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'projectRemoveMissing' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'runReply' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'attentionDismiss' | 'notificationCommand' | 'diagnosticsQuery' | 'usageOverview' | 'usageProjects' | 'organizerQuery' | 'organizerCommand' | 'organizerDictation' | 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'projectRemoveMissing' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'runReply' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -169,6 +169,7 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/notifications': return { route: { kind: 'notificationStatus' }, allow: ['GET'] };
     case '/api/v1/notifications/command': return { route: { kind: 'notificationCommand' }, allow: ['POST'] };
     case '/api/v1/attention': return { route: { kind: 'attention' }, allow: ['GET'] };
+    case '/api/v1/attention/dismiss': return { route: { kind: 'attentionDismiss' }, allow: ['POST'] };
     case '/api/v1/terminal/command': return { route: { kind: 'terminalCommand' }, allow: ['POST'] };
     case '/api/v1/terminal/input': return { route: { kind: 'terminalInput' }, allow: ['POST'] };
     case '/api/v1/terminal/prompt': return { route: { kind: 'terminalPrompt' }, allow: ['POST'] };
@@ -516,6 +517,7 @@ export class HostApiServer {
         case 'saveWorkspaceFile':
         case 'supervisionQuery':
         case 'supervisionCommand':
+        case 'attentionDismiss':
         case 'conversationQuery':
         case 'diagnosticsQuery':
         case 'usageOverview':
@@ -661,6 +663,7 @@ export class HostApiServer {
         : kind === 'dictationCommand' || kind === 'dictationUpload' ? await this.application.remoteDictation(context, payload, kind === 'dictationUpload')
         : kind === 'runAnswer' ? await this.application.answerRunQuestion(context, runId!, payload)
         : kind === 'runReply' ? await this.application.replyTask(context, runId!, payload)
+        : kind === 'attentionDismiss' ? await this.application.dismissAttention(context, payload)
         : kind === 'supervisionQuery' || kind === 'supervisionCommand' ? await this.application.supervision(context, payload, kind === 'supervisionCommand')
         : kind === 'conversationQuery' || kind === 'conversationCommand' ? await this.application.conversation(context, payload, kind === 'conversationCommand')
         : kind === 'conversationDictation' ? await this.application.conversationDictation(context, payload)

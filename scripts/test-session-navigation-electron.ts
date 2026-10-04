@@ -1,4 +1,5 @@
 /** Real platform-native shells, Electron and paired tablet; no agent CLI or model required. */
+import { expect } from 'playwright/test';
 import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, copyFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -38,7 +39,8 @@ void (async () => {
     const profile = join(root, 'profile', 'ade'); mkdirSync(profile, { recursive: true });
     const config = structuredClone(DEFAULT_CONFIG);
     config.sessionBookends = [{ id: 'orphan-before-host-restart', agentId: 'removed-profile', agentName: 'Interrupted fixture', runtime: 'codex',
-      repositoryId: null, repositoryName: null, startedAt: 1, endedAt: null }];
+      repositoryId: null, repositoryName: null, startedAt: 1, endedAt: null },
+      { id: 'orphan-for-tablet', agentName: 'Interrupted tablet fixture', runtime: 'codex', repositoryId: null, repositoryName: null, startedAt: 2, endedAt: null }];
     writeFileSync(join(profile, 'config.json'), JSON.stringify(config));
   }
   writeFileSync(launcher, `
@@ -77,8 +79,19 @@ require(${JSON.stringify(mainEntry())});
   if (agentTablet) {
     const lost = initialDecisions.locator('[data-attention-group="interrupted"] [data-attention-id="history:orphan-before-host-restart"]');
     await lost.waitFor();
-    check('startup recovery marks a lost process interrupted without offering a fabricated resume', await lost.getByRole('button').isDisabled()
+    check('startup recovery marks a lost process interrupted without offering a fabricated resume', await lost.getByRole('button', { name: 'Arbeit öffnen: Interrupted fixture', exact: true }).isDisabled()
       && (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length === 0);
+    // The notice can be closed; the record stays as evidence and nothing is resumed.
+    const close = lost.getByRole('button', { name: 'Eintrag schliessen: Interrupted fixture', exact: true });
+    await close.focus(); await desktop.keyboard.press('Enter');
+    await lost.waitFor({ state: 'detached' });
+    const kept = JSON.parse(readFileSync(join(root, 'profile', 'ade', 'config.json'), 'utf8')).sessionBookends.find((item: { id: string }) => item.id === 'orphan-before-host-restart');
+    check('closing an interrupted entry removes it from the overview and keeps its record', typeof kept?.acknowledgedAt === 'number' && kept.exitReason === 'interrupted'
+      && await initialDecisions.locator('[data-attention-id="history:orphan-for-tablet"]').count() === 1);
+    await expect.poll(() => initialDecisions.evaluate(node => node.contains(document.activeElement))).toBe(true);
+    check('closing an entry keeps keyboard focus inside the decision panel', true);
+    check('a closed or unknown entry cannot be closed again', (await desktop.evaluate(() => window.ade.invoke('attention:dismiss', { id: 'history:orphan-before-host-restart' }))).dismissed === false
+      && (await desktop.evaluate(() => window.ade.invoke('attention:dismiss', { id: 'history:does-not-exist' }))).dismissed === false);
   } else {
     await initialDecisions.getByText('Noch keine aktuellen Entscheidungen oder aufgezeichnete Arbeit.', { exact: true }).waitFor();
     check('fresh desktop decision overview has a useful empty state', await initialDecisions.locator('[data-attention-id]').count() === 0);

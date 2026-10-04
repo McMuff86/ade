@@ -63,6 +63,7 @@ function rejects(channel: InvokeChannel, payload: unknown): boolean {
 const valid: Record<InvokeChannel, unknown> = {
   'hostOperation:get': undefined,
   'attention:get': undefined,
+  'attention:dismiss': { id: 'history:session-1' },
   'hostOperation:change': { setting: 'keepAwake', enabled: true },
   'organizer:query': { operation: 'list' },
   'organizer:command': { operation: 'put', writerId: '11111111-1111-4111-8111-111111111111', sequence: 1, baseRevision: 0, document: newOrganizerDocument('note') },
@@ -371,6 +372,14 @@ check('a task reply names only run, task, prompt and commandId — never an agen
   && rejects('runTask:reply', { runId: 'run', taskId: 'task', prompt: 'Yes', agentId: 'agent' })
   && rejects('runTask:reply', { runId: 'run', taskId: 'task', prompt: 'Yes', workspaceDir: '/tmp/x' })
   && rejects('runTask:reply', { runId: 'run', taskId: 'task', prompt: 'Yes', nativeSessionId: 'abc' }));
+check('closing an interruption names exactly one history row and is desktop-only',
+  !rejects('attention:dismiss', { id: 'history:session-1' })
+  && rejects('attention:dismiss', { id: 'run:abc' })
+  && rejects('attention:dismiss', { id: 'history:' })
+  && rejects('attention:dismiss', { id: 'history:a', force: true })
+  && rejects('attention:dismiss', {})
+  && CHANNEL_POLICY['attention:dismiss'].surface === 'desktop' && CHANNEL_POLICY['attention:dismiss'].effect === 'mutate'
+  && CHANNEL_POLICY['attention:dismiss'].remote === undefined);
 check('unknown approval decisions are rejected', rejects('runApproval:resolve', {
   approvalId: 'approval', decision: 'maybe',
 }));

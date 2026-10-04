@@ -35,6 +35,14 @@ export function AttentionPanel({ identity, online = true, query, onOpen, actions
   const [snapshot, setSnapshot] = useState<AttentionSnapshot | null>(null);
   const [error, setError] = useState(''); const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState<string | null>(null);
+  const [closing, setClosing] = useState<string | null>(null);
+  const closeKeys = useRef(new Map<string, string>()); const panel = useRef<HTMLElement>(null);
+  const [closedCount, setClosedCount] = useState(0);
+  // The closed entry's button is gone after the next render; keep keyboard focus in the panel.
+  // An effect, not an animation frame: an occluded window may not paint.
+  useEffect(() => {
+    if (closedCount && (!document.activeElement || document.activeElement === document.body)) panel.current?.querySelector<HTMLElement>('header button')?.focus();
+  }, [closedCount, snapshot]);
   const epoch = useRef(0); const pending = useRef(false); const navigation = useRef(false);
   const queryRef = useRef(query); queryRef.current = query;
   const refreshRef = useRef<() => Promise<void>>(async () => {});
@@ -61,7 +69,20 @@ export function AttentionPanel({ identity, online = true, query, onOpen, actions
     catch { if (generation === epoch.current) setError(t('This work could not be opened. Refresh and check its current state.')); }
     finally { if (generation === epoch.current) { navigation.current = false; setOpening(null); } }
   };
-  return <section className="attention-panel" aria-label={t('Your next decisions')} data-testid="attention-panel">
+  const dismiss = async (row: AttentionRow) => {
+    if (!actions?.dismiss || closing || !online) return;
+    const generation = epoch.current; setClosing(row.id); setError('');
+    // One key per entry: a retry after a lost reply closes it once.
+    if (!closeKeys.current.has(row.id)) closeKeys.current.set(row.id, crypto.randomUUID());
+    try {
+      await actions.dismiss(row.id, closeKeys.current.get(row.id)!); closeKeys.current.delete(row.id);
+      if (generation !== epoch.current) return;
+      await refreshRef.current();
+      setClosedCount(count => count + 1);
+    } catch { if (generation === epoch.current) setError(t('The entry could not be closed. Refresh and try again.')); }
+    finally { if (generation === epoch.current) setClosing(null); }
+  };
+  return <section ref={panel} className="attention-panel" aria-label={t('Your next decisions')} data-testid="attention-panel">
     <header><div><h2>{t('Your next decisions')}</h2><p>{t('Confirmed questions, results and interruptions across your projects.')}</p></div>
       <button type="button" disabled={!online || !!opening} onClick={() => void refreshRef.current()}>{t('Refresh work overview')}</button></header>
     {!online ? <p role="status">{t('PC offline. Reconnect to check work; no action is queued.')}</p>
@@ -85,6 +106,9 @@ export function AttentionPanel({ identity, online = true, query, onOpen, actions
                 : row.target.kind === 'project' ? t('Open project') : row.target.kind === 'supervision' ? t('Review handoff')
                   : row.reason === 'question' ? t('Open question') : row.group === 'review' ? t('Review result') : t('Inspect work')}
             </button>
+            {row.dismissible && actions?.dismiss && <button type="button" className="attention-dismiss" disabled={!!closing || !online} aria-busy={closing === row.id || undefined}
+              aria-label={t('Close entry: {{title}}', { title: row.title })} onClick={event => { event.currentTarget.focus(); void dismiss(row); }}>
+              {closing === row.id ? t('Closing entry…') : t('Close entry')}</button>}
             {actions && row.actions.length > 0 && row.target && <>
               <button type="button" className="attention-toggle" id={`attention-toggle-${domId(row.id)}`} aria-expanded={expanded === row.id}
                 aria-controls={`attention-decision-${domId(row.id)}`} aria-label={t('Decision options: {{title}}', { title: row.title })}

@@ -857,6 +857,11 @@ eigenem Startbefehl lassen sich nicht fortsetzen; starte dafür einen neuen Auft
 ADE entscheidet nicht selbst, ob die Antwort des Agenten eine Frage war: Der
 Auftrag bleibt „Abgeschlossen“, das Antwortfeld steht daneben.
 
+Unter **Unterbrochen** in der Übersicht stehen Sitzungen, die mit einem
+unerwarteten Ende von ADE verloren gingen. **Eintrag schliessen** entfernt den
+Hinweis am PC und am Tablet; es wird nichts fortgesetzt oder gelöscht, ADE
+behält den Eintrag intern als Nachweis.
+
 Am Tablet öffnet **Graph** mit **Alle Aufträge**: jede offene oder in den letzten
 24 Stunden beendete Arbeit ist eine eigene Box mit Agent, Projekt, Status und
 Startzeit. Antippen öffnet rechts die Details; ein Run mit mehreren Agents

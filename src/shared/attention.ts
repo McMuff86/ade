@@ -22,6 +22,8 @@ export interface AttentionRow {
   activityKind: 'state' | 'output' | 'start';
   reason: 'question' | 'approval' | 'run-active' | 'process-active' | 'completed' | 'failed' | 'cancelled' | 'lost' | 'unknown' | 'ended' | 'handoff';
   pendingQuestions: number;
+  /** A recorded interruption the caller may close. Closing only stops listing it; nothing is resumed or deleted. */
+  dismissible?: boolean;
   /** Only for `reason: 'lost'`: how the previous ADE owner ended. Process loss is never a resumable session. */
   interruption?: 'app-quit' | 'host-restart' | 'app-crash' | 'unknown';
   target: AttentionTarget | null;
@@ -36,6 +38,8 @@ export type AttentionPromptState = 'available' | 'unsupported' | 'not-ready' | '
 export interface AttentionAccess {
   runsWrite: boolean;
   terminalWrite: boolean;
+  /** May close recorded interruptions (desktop; a device with terminal control). */
+  dismiss?: boolean;
   prompt(sessionId: string): AttentionPromptState;
 }
 export const NO_ATTENTION_ACCESS: AttentionAccess = { runsWrite: false, terminalWrite: false, prompt: () => 'unsupported' };

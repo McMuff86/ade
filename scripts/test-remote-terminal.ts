@@ -1,3 +1,4 @@
+import { acknowledgeInterruptedBookend } from '../src/main/overview/sessionBookends';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -64,12 +65,41 @@ void (async () => {
   const app = new AdeApplicationService(store, fixture.orchestration, { status: () => ({ active: 0, queued: 0, maxActive: 4 }) }, {
     resourceAccess: (id) => devices.resourceAccess(id),
     workbench, terminals: terminal, administration: { ledger, restart: new HostRestartController(gate, () => [], () => undefined, 'fixture', true) },
+    dismissInterruption: (sessionId) => {
+      const current = store.get().sessionBookends; const next = acknowledgeInterruptedBookend(current, sessionId, now);
+      if (next === current) return false; store.save({ sessionBookends: next }); return true;
+    },
   });
   const command = (payload: object, ctx = context()) => app.remoteTerminal(ctx, { ...selection, ...payload }, 'command');
   const query = async (terminalId?: string, ctx = context()) => app.remoteTerminal(ctx, { ...selection, ...(terminalId ? { terminalId } : {}) }, 'query') as Promise<MobileTerminalState>;
   await refuses('source-read permission cannot open terminal', () => command({ operation: 'open', mode: 'shell' }), 'scope_not_granted');
   await refuses('session inventory requires the terminal grant', () => app.remoteSessionInventory(context().principal), 'scope_not_granted');
+  await refuses('closing an interruption requires the terminal grant', () => app.dismissAttention(context(), { id: `history:${'a'.repeat(32)}` }), 'scope_not_granted');
   devices.setAdminScopes('tablet', ['catalog:write', 'workspace:read', 'terminal:control']);
+  {
+    // Recorded interruptions can be closed by the device that is shown them; the record stays.
+    const lost = (id: string, name: string) => ({ id, agentName: name, runtime: 'codex' as const, repositoryId: null, repositoryName: null,
+      startedAt: 1, endedAt: 2, exitReason: 'interrupted' as const, interruption: 'app-crash' as const });
+    store.save({ sessionBookends: [lost('pty-secret-1', 'Lost one'), lost('pty-secret-2', 'Lost two'),
+      { ...lost('pty-ended', 'Ended normally'), exitReason: 'exit' as const, interruption: undefined }] });
+    const rows = (await app.attention(context().principal)).rows.filter(row => row.kind === 'history');
+    const one = rows.find(row => row.title === 'Lost one')!;
+    check('interrupted sessions are offered for closing under an opaque row id', rows.length === 2 && rows.every(row => row.dismissible === true && /^history:[a-f0-9]{32}$/.test(row.id))
+      && !JSON.stringify(rows).includes('pty-secret'));
+    await refuses('closing requires an idempotency key', () => app.dismissAttention({ ...context(), idempotencyKey: undefined }, { id: one.id }), 'idempotency_key_required');
+    await refuses('closing rejects a raw session id', () => app.dismissAttention(context(), { id: 'history:pty-secret-1' }), 'invalid_payload');
+    await refuses('closing rejects extra fields', () => app.dismissAttention(context(), { id: one.id, force: true }), 'invalid_payload');
+    await refuses('an unknown row cannot be closed', () => app.dismissAttention(context(), { id: `history:${'0'.repeat(32)}` }), 'not_found');
+    check('refused attempts change nothing', store.get().sessionBookends.every(item => item.acknowledgedAt === undefined));
+    const closeContext = context(); const closed = await app.dismissAttention(closeContext, { id: one.id }); const again = await app.dismissAttention(closeContext, { id: one.id });
+    check('closing acknowledges exactly that record and a replay changes nothing more', closed.dismissed && !closed.replayed && again.replayed
+      && store.get().sessionBookends.filter(item => item.acknowledgedAt !== undefined).map(item => item.id).join() === 'pty-secret-1');
+    const after = (await app.attention(context().principal)).rows.filter(row => row.kind === 'history');
+    check('the closed entry is no longer listed; the other one and the record itself remain', after.length === 1 && after[0]!.title === 'Lost two'
+      && store.get().sessionBookends.length === 3 && store.get().sessionBookends[0]!.exitReason === 'interrupted');
+    await refuses('a closed entry cannot be closed under a new key', () => app.dismissAttention(context(), { id: one.id }), 'not_found');
+    store.save({ sessionBookends: [] });
+  }
   for (const payload of [{ operation: 'open', mode: 'shell', command: 'injected' }, { operation: 'open', mode: 'custom' },
     { operation: 'claim', terminalId: '../native-1' }, { operation: 'open', mode: 'shell', workspaceDir: root }]) {
     await refuses('terminal rejects caller-owned command, PTY/path or mode', () => command(payload), 'invalid_payload');

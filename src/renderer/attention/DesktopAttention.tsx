@@ -17,6 +17,7 @@ const desktopActions: AttentionActionsPort = {
   cancel: (runId, commandId) => window.ade.invoke('run:cancel', { runId, commandId }),
   instruct: (sessionId, text, commandId) => window.ade.invoke('terminal:promptSend', { sessionId, commandId, text, mode: 'submit' }),
   takeInput: (sessionId) => window.ade.invoke('terminal:reclaim', { sessionId }),
+  dismiss: (rowId) => window.ade.invoke('attention:dismiss', { id: rowId }),
 };
 
 export function DesktopAttention() {

@@ -562,6 +562,8 @@ export interface SessionConsumption {
 export interface MobileRunDeleteResult { runId: string; deleted: true; replayed: boolean }
 
 export type MobileRunQuestions = import('./runQuestions').RunQuestionsView;
+/** Close a recorded interruption (`POST /api/v1/attention/dismiss`); `id` is the row id the device was shown. */
+export interface MobileAttentionDismissInput { id: string }
 /** Reply to the last finished task of a single-task run; the run id is in the route. */
 export interface MobileTaskReplyInput { taskId: string; prompt: string }
 export type MobileRunAnswerInput = Omit<import('./runQuestions').RunQuestionAnswerInput, 'runId' | 'commandId'>;

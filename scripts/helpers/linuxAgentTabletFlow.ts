@@ -48,6 +48,15 @@ export async function linuxAgentTabletFlow(desktop: Page, tablet: Page, root: st
       && item.args.includes('--dangerously-bypass-approvals-and-sandbox') && item.args.includes('gpt-5.6-sol')));
   check('profile launches preserve tracked project instructions and branches', ['Linux A', 'Linux B'].every(name => git(name, 'status', '--porcelain') === '' && git(name, 'branch', '--show-current').trim() === 'main'));
   await tablet.reload(); await tablet.getByRole('status').filter({ hasText: /^Verbunden$/ }).waitFor();
+  // The tablet can close a recorded interruption it is shown; the host keeps the record.
+  await tablet.getByRole('tab', { name: 'Übersicht', exact: true }).click();
+  const lostOnTablet = tablet.getByTestId('attention-panel').locator('[data-attention-group="interrupted"] li').filter({ hasText: 'Interrupted tablet fixture' });
+  await lostOnTablet.waitFor();
+  await lostOnTablet.getByRole('button', { name: 'Eintrag schliessen: Interrupted tablet fixture', exact: true }).click();
+  await lostOnTablet.waitFor({ state: 'detached' });
+  check('tablet closes an interrupted entry through its signed route and the desktop no longer lists it',
+    !(await desktop.evaluate(() => window.ade.invoke('attention:get'))).rows.some(row => row.id === 'history:orphan-for-tablet')
+    && await tablet.getByTestId('attention-panel').getByRole('alert').count() === 0);
   const response = tablet.waitForResponse(item => item.url().endsWith('/api/v1/terminal/sessions') && item.ok());
   await tablet.locator('#mobile-session-switch').click();
   const inventory = await (await response).json() as import('../../src/shared/remote').MobileSessionInventory;

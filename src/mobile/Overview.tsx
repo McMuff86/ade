@@ -39,6 +39,7 @@ export function Overview({ host, selected, onRun, onAgent, onProject, onTerminal
     questions: { read: (id) => host.request(`/api/v1/runs/${id}/questions`),
       answer: (input, key) => host.request(`/api/v1/runs/${input.runId}/answers`, 'POST', { taskId: input.taskId, questionId: input.questionId, answers: input.answers }, key) },
     cancel: (runId, key) => host.request(`/api/v1/runs/${runId}/cancel`, 'POST', undefined, key),
+    dismiss: (rowId, key) => host.request('/api/v1/attention/dismiss', 'POST', { id: rowId }, key),
   }), [host.request]);
   const usage = useUsageOverview(() => host.request<UsageOverview>('/api/v1/usage/overview', 'POST', {}), host.status === 'online');
   const open = runs.filter((run) => !finalStates.has(run.status));

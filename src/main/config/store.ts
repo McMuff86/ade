@@ -422,7 +422,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
     ['commandId', 'channel', 'createdAt', 'resultJson'], 'commandId');
   schema(config.sessionBookends, 'config.sessionBookends', [
     'id', 'agentId', 'agentName', 'runtime', 'repositoryId', 'repositoryName',
-    'startedAt', 'endedAt', 'exitReason', 'interruption', 'projectWorkspaceId', 'branch',
+    'startedAt', 'endedAt', 'exitReason', 'interruption', 'projectWorkspaceId', 'branch', 'acknowledgedAt',
   ], ['id', 'agentName', 'runtime', 'repositoryId', 'repositoryName', 'startedAt', 'endedAt']);
 
   const text = (value: unknown, label: string, optional = false): void => {

@@ -14,6 +14,8 @@ export interface AttentionActionsPort {
   cancel(runId: string, key: string): Promise<unknown>;
   instruct?(sessionId: string, text: string, commandId: string): Promise<{ accepted: true; replayed: boolean }>;
   takeInput?(sessionId: string): Promise<unknown>;
+  /** Close a recorded interruption by its row id; the key makes a retry safe. */
+  dismiss?(rowId: string, key: string): Promise<unknown>;
 }
 
 const blockLabel = (reason: AttentionActionBlock) => ({

@@ -466,6 +466,19 @@ the same pre-dispatch wait before its query/open transaction. The same native
 driver covers queued release, duplicate taps, disconnect cancellation and deliberate
 takeover/release afterwards.
 
+Closing interruption notices (2026-10-04). A session record with
+`exitReason: 'interrupted'` stays in `sessionBookends` as evidence of process
+loss. The user can close its notice: `acknowledgeInterruptedBookend` sets
+`acknowledgedAt`, and `attentionOverview` stops listing it; nothing is resumed
+or deleted. The desktop uses the desktop-only `attention:dismiss` channel
+(`mutate`, audited). A device uses `POST /api/v1/attention/dismiss` through
+`AdeApplicationService.dismissAttention` and the command ledger: the same
+`terminal:control` grant that makes the row visible, device signature, required
+idempotency key and audit. The device names the opaque per-device row id it was
+shown; the host resolves it only among the records that device may see, so a
+PTY session id never crosses the wire. Rows carry `dismissible` only for a
+caller that may close them.
+
 Tablet job overview (2026-10-04). The mobile graph opens on `GraphOverview`
 when more than one run is visible: one box per run from the existing
 `MobileRunSummary` list (open runs plus those updated within 24 hours), no new

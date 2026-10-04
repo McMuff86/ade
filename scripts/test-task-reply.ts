@@ -118,4 +118,5 @@ void (async () => {
   console.log(`Task reply: ${passed} passed, ${failed} failed`);
   if (failed) process.exitCode = 1;
 })().catch((error) => { console.error(error); console.log(`Task reply: ${passed} passed, ${failed + 1} failed`); process.exitCode = 1; })
-  .finally(() => rmSync(root, { recursive: true, force: true }));
+  // Windows may still hold a fixture workspace handle for a moment; cleanup must not fail the suite.
+  .finally(() => { try { rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch (error) { console.warn('task-reply fixture cleanup skipped:', (error as NodeJS.ErrnoException).code); } });
