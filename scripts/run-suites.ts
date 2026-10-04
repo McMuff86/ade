@@ -34,12 +34,12 @@ interface Suite {
 }
 
 const SUITES: Suite[] = [
-  { id: 'host-boundary', script: 'test-host-boundary.ts', floors: { linux: 18 } },
+  { id: 'host-boundary', script: 'test-host-boundary.ts', floors: { linux: 18, win32: 18 } },
   { id: 'host-handlers', script: 'test-host-handlers.ts', floors: { linux: 10 } },
   { id: 'host-secret-vault', script: 'test-host-secret-vault.ts', floors: { linux: 59 } },
   { id: 'linux-keyring-boundary', script: 'test-linux-keyring-boundary.ts', floors: { linux: 21 } },
   { id: 'profile-paths', script: 'test-profile-paths.ts', floors: { linux: 16 } },
-  { id: 'desktop-clients', script: 'test-desktop-clients.ts', floors: { linux: 13 } },
+  { id: 'desktop-clients', script: 'test-desktop-clients.ts', floors: { linux: 13, win32: 13 } },
   { id: 'web-push', script: 'test-web-push.ts', floors: { linux: 74 } },
   { id: 'organizer', script: 'test-organizer.ts', floors: { win32: 72 } },
   { id: 'remote-organizer', script: 'test-remote-organizer.ts', floors: { win32: 35 } },
@@ -122,7 +122,7 @@ const SUITES: Suite[] = [
   { id: 'attention', script: 'test-attention.ts', floors: { linux: 49, win32: 49 } },
   { id: 'cli-work', script: 'test-cli-work.ts', floors: { win32: 25 } },
   { id: 'session-navigation', script: 'test-session-navigation.ts', floors: { win32: 14 } },
-  { id: 'session-processes', script: 'test-session-processes.ts', floors: { linux: 32 } },
+  { id: 'session-processes', script: 'test-session-processes.ts', floors: { linux: 32, win32: 19 } },
   { id: 'supervision-navigation', script: 'test-supervision-navigation.ts', floors: { win32: 8 } },
   { id: 'terminal-workspace-identity', script: 'test-terminal-workspace-identity.ts', floors: { win32: 17 } },
   { id: 'host-api', script: 'test-host-api.ts', floors: { win32: 184 } },

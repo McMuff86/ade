@@ -4,8 +4,8 @@ Kurzüberblick (4. Oktober 2026): Goal 34.1–34.5 unter nativem Linux
 implementiert und geprüft; 34.6 bis H2b implementiert, H2a/H2b noch ohne
 produktive Verdrahtung. Letztes `pnpm verify` **31/0/16 nicht gemessen**,
 **114 Suiten / 4.735 Checks**. Windows-, physische Tablet- und weitere native
-Adapterabnahmen offen; der Windows-Job der GitHub-CI ist seit dem 30. September
-rot. Übersicht je Teilziel:
+Adapterabnahmen offen. GitHub-CI: Linux- und Windows-Job grün seit den
+Testkorrekturen vom 4. Oktober (zuvor Windows rot seit 30. September). Übersicht je Teilziel:
 [ROADMAP](ROADMAP.md#aktueller-stand-4-oktober-2026). Abschnitte unten sind
 datiert und reichen bis zum 29. September zurück; die ältere Lieferchronik liegt
 im [Archiv](archived/STATUS_2026-10-04_CHECKPOINT.md).

@@ -5,9 +5,11 @@
 Goal 34 ist unter **nativem Linux (Omarchy)** bis einschliesslich **34.5**
 implementiert und geprüft; 34.6 steht bei H2b. Letztes vollständiges
 `pnpm verify` (4. Oktober) **31 bestanden / 0 Fehler / 16 nicht gemessen** (nur
-Windows), **114 Suiten / 4.735 Checks**. Der Windows-Job der GitHub-CI ist seit
-dem 30. September rot (Suite „Native session processes (win32)“); das ist vor
-H2c zu beheben oder ausdrücklich als nicht gemessen auszuweisen. Details je Teilziel: [STATUS](STATUS.md),
+Windows), **114 Suiten / 4.735 Checks**. Der Windows-Job der GitHub-CI war vom
+30. September bis 4. Oktober rot (Testfehler in `host-boundary`,
+`desktop-clients` und `session-processes`, kein Produktfehler); mit den
+Korrekturen vom 4. Oktober sind beide CI-Jobs grün (114 Suiten je Plattform,
+`session-processes` unter Windows erstmals gemessen: 19 Checks). Details je Teilziel: [STATUS](STATUS.md),
 [Fähigkeitsmatrix](AGENT_SESSION_PLATFORM_RESULTS.md), [Betrieb](HANDOFF.md).
 
 | Teilziel | Linux-Stand | Offen |

@@ -13,7 +13,7 @@ Dateiziel-Check danach: 154 Markdown-Dateien, 1.046 relative Verweise, 3
 fehlende Ziele, alle in UI_UX_REVIEW_BRIEF auf nicht versionierte Bilder unter
 `test-results/` (bestanden schon vorher). Köpfe von ROADMAP, STATUS und
 Doku-Index nennen den Verify-Stand vom 4. Oktober (114 Suiten / 4.735 Checks)
-und die rote Windows-CI. Aus dem Repository-Root nach `archived/origin/` verschoben: `Build_text.md`,
+und den CI-Stand (Windows rot bis 4. Oktober, danach grün). Aus dem Repository-Root nach `archived/origin/` verschoben: `Build_text.md`,
 `mock/`, `mockup/` und `output/imagegen/`; das App-Icon bleibt im Root, weil
 Build und Packaging es einbinden. Nicht geprüft in diesem Durchgang: inhaltliche
 Aktualität der verbleibenden `*_PLAN`-, `*_GOALS`- und `*_PROPOSAL`-Dateien.
