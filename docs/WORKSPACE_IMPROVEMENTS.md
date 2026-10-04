@@ -6,7 +6,7 @@ Arbeitsstands angefordert. Dies ist noch keine abschliessend abgenommene Release
 ## Enthalten
 
 - Mobiler Textverlauf per Knopf, Mausrad, Touch und Shift+PageUp, mit stabiler
-  Leseposition; [Verlaufdetails](TERMINAL_SCROLL_RESULTS.md).
+  Leseposition; [Verlaufdetails](archived/TERMINAL_SCROLL_RESULTS.md).
 - Terminalanzeige verwendet bereits aufbereitete, redigierte Bilder erneut,
   solange weder Ausgabe noch Grösse geändert wurden. Bei geänderter Ausgabe
   wartet Mobile 40 statt 100 ms bis zur nächsten Abfrage; weiter nur eine

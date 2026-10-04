@@ -172,7 +172,7 @@ Typecheck, 87 Suiten/3.580 Prüfungen, Build, Dialog 44/0, Navigation 51/0,
 voller Terminaldriver 208/0 und Run-Inspektion 27/0 bestanden. Die übrigen Driver
 bestanden danach einzeln: Projekt-Git 22/0, Latenz 6/0, Veröffentlichung 12/0,
 Einrichtung 38/0 und visuelle Vergleiche 22/0. Ursache der leeren Zwischenablage und vollständige
-Gesamtabnahme bleiben offen. [Kontexthandoff](CONTEXT_HANDOFF_2026-09-17.md).
+Gesamtabnahme bleiben offen. [Kontexthandoff](archived/CONTEXT_HANDOFF_2026-09-17.md).
 
 Die Codex-Verbindung ist als globaler PC-/Tablet-Dialog mit bestätigten
 Projektaufträgen verdrahtet. Ereignisgesteuerte Koordination, tatsächliche

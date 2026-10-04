@@ -1,5 +1,23 @@
 # ADE-Dokumentationsaudit
 
+## Archivierung und Kürzung (4. Oktober 2026)
+
+HANDOFF (3.150 → 324 Zeilen), STATUS (1.812 → 483) und ROADMAP (1.128 → 639)
+enthalten nur noch den aktuellen Stand; die ausgeschnittenen Abschnitte liegen
+unverändert als `*_2026-10-04_CHECKPOINT.md` in [archived](archived/README.md).
+Dorthin verschoben wurden ausserdem 27 abgeschlossene `*_RESULTS.md`, 3
+Aktivierungsnachweise, der Kontexthandoff vom 17. September und 5 datierte
+Einzelberichte (36 Dateien). Aktiv bleibt die Fähigkeitsmatrix zu Goal 34. Kein
+Inhalt wurde gelöscht oder umgeschrieben; relative Links wurden umgebogen.
+Dateiziel-Check danach: 154 Markdown-Dateien, 1.046 relative Verweise, 3
+fehlende Ziele, alle in UI_UX_REVIEW_BRIEF auf nicht versionierte Bilder unter
+`test-results/` (bestanden schon vorher). Köpfe von ROADMAP, STATUS und
+Doku-Index nennen den Verify-Stand vom 4. Oktober (114 Suiten / 4.735 Checks)
+und die rote Windows-CI. Aus dem Repository-Root nach `archived/origin/` verschoben: `Build_text.md`,
+`mock/`, `mockup/` und `output/imagegen/`; das App-Icon bleibt im Root, weil
+Build und Packaging es einbinden. Nicht geprüft in diesem Durchgang: inhaltliche
+Aktualität der verbleibenden `*_PLAN`-, `*_GOALS`- und `*_PROPOSAL`-Dateien.
+
 ## Abgleich nach der Goal-34-Stabilisierung (1. Oktober 2026, abends)
 
 Nach `5ea398f`, `198e39b`, `e5fda7f` und `2dde188` wurden die aktiven Dokumente
@@ -33,11 +51,11 @@ bestanden wurde. Der neue Diktat-/Verbrauchs-Appdriver besteht 32 Checks.
 Der aktuelle Auftrag umfasst CLI-Arbeitsübersicht, Diktat auf PC und Tablet,
 Terminal-Latenz und Verbrauch/Kosten. README, Index, SPEC, ARCHITECTURE,
 STATUS, ROADMAP und HANDOFF werden gemeinsam mit dem Code fortgeschrieben.
-Die CLI-Lieferung steht im [CLI-Nachweis](CLI_WORK_LATENCY_RESULTS.md), der
-folgende Sprachmeilenstein in den [Diktat-Nachweisen](DICTATION_IMPLEMENTATION_RESULTS.md).
+Die CLI-Lieferung steht im [CLI-Nachweis](archived/CLI_WORK_LATENCY_RESULTS.md), der
+folgende Sprachmeilenstein in den [Diktat-Nachweisen](archived/DICTATION_IMPLEMENTATION_RESULTS.md).
 Die persönliche Aktivierung ist im Handoff mit Paket- und Prozessnachweis
 festgehalten; die physische Tablet-Abnahme übernimmt jetzt der Operator.
-Der [Verbrauchsquellenbericht](USAGE_SOURCE_RESULTS.md) beschreibt echte native
+Der [Verbrauchsquellenbericht](archived/USAGE_SOURCE_RESULTS.md) beschreibt echte native
 Proben; die inzwischen angeschlossene native Sitzungserfassung besitzt eine eigene
 Fixture-Abnahme und erste echte Integrationsproben. Die zusätzliche
 unzugeordnete Codex-Meldung und der weitere Kostenausbau bleiben offen.

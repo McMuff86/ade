@@ -1,6 +1,6 @@
 # ADE-Dokumentation
 
-Stand: 2026-10-01. Beginne je nach Anliegen hier:
+Stand: 2026-10-04. Beginne je nach Anliegen hier:
 
 | Anliegen | Dokument |
 |---|---|
@@ -12,14 +12,14 @@ Stand: 2026-10-01. Beginne je nach Anliegen hier:
 | Terminalrechte, Dateien und erweiterte Sitzungsauswahl | [Remote Terminal Guide](REMOTE_TERMINAL_GUIDE.md) |
 | Aktueller Funktionsumfang und Grenzen | [STATUS](STATUS.md) |
 | Oberfläche: Räume, Wortschatz, Aktionsinventar und Designregeln | [Verbesserungsplan 27.09.](UI_UX_IMPROVEMENT_PLAN.md), [UI/UX-Analyse und Umsetzung](UI_UX_NEXT_LEVEL.md), [Briefing](UI_UX_REVIEW_BRIEF.md), [Calm Pass](UI_CALM_PASS.md) |
-| Laufende CLI-Aufgaben, Diktat auf PC/Tablet und aktuelle Arbeit | [Aktive Ziele](CLI_WORK_AND_DICTATION_GOALS.md), [CLI-/Latenz-Nachweise](CLI_WORK_LATENCY_RESULTS.md), [Diktat-Nachweise](DICTATION_IMPLEMENTATION_RESULTS.md) |
-| Verbrauch und Kosten von Coding-CLIs und ElevenLabs | [Verbrauchsvertrag und Umsetzungskriterien](USAGE_AND_COST_GOALS.md), [native Quellen und Integrationsnachweise](USAGE_SOURCE_RESULTS.md) |
+| Laufende CLI-Aufgaben, Diktat auf PC/Tablet und aktuelle Arbeit | [Aktive Ziele](CLI_WORK_AND_DICTATION_GOALS.md), [CLI-/Latenz-Nachweise](archived/CLI_WORK_LATENCY_RESULTS.md), [Diktat-Nachweise](archived/DICTATION_IMPLEMENTATION_RESULTS.md) |
+| Verbrauch und Kosten von Coding-CLIs und ElevenLabs | [Verbrauchsvertrag und Umsetzungskriterien](USAGE_AND_COST_GOALS.md), [native Quellen und Integrationsnachweise](archived/USAGE_SOURCE_RESULTS.md) |
 | Eindeutige Zielnummern und historische Zuordnung | [Zielregister](GOAL_REGISTRY.md) |
 | Projekt → Branch → CLI → Git und Ergebnisdateien: Umsetzung und Abnahme | [Projekt-Workflow-Tasks](PROJECT_WORKFLOW_GOALS.md) |
 | Prioritäten und frühere Produktbewertung | [Aktive Ziele](CLI_WORK_AND_DICTATION_GOALS.md), [datierter Review vom 10. September](research/ADE_PRODUCT_REVIEW_2026-09-10.md) |
 | Aktuelle Übergabe / Betrieb | [HANDOFF](HANDOFF.md) |
 | Goal 34.6 (unabhängiger Host) in neuem Kontext fortsetzen | [Kontexthandoff 3. Oktober](CONTEXT_HANDOFF_2026-10-03.md) |
-| ADE-Agent-Entwicklung nach der Pause wieder aufnehmen | [Kontexthandoff 17. September](CONTEXT_HANDOFF_2026-09-17.md), [Goals](MAIN_AGENT_GOALS.md) |
+| ADE-Agent-Entwicklung nach der Pause wieder aufnehmen | [Kontexthandoff 17. September](archived/CONTEXT_HANDOFF_2026-09-17.md), [Goals](MAIN_AGENT_GOALS.md) |
 | Diesen Entwicklungsstand zu Hause laden | [Update und Erhalt des lokalen Profils](HOME_UPDATE.md) |
 | Geplante Tracks und Abnahmekriterien | [ROADMAP](ROADMAP.md) |
 | Welche Dokumente sind noch aktuell? | [Dokumentationsaudit](DOCUMENTATION_AUDIT.md) |
@@ -50,7 +50,10 @@ Für den aktuellen Zustand immer STATUS und den jeweiligen Nachweis daneben lese
 
 ## Ausführbare Nachweise und datierte Recherche
 
-`*_RESULTS.md`, [Goal 6](goal6/RESULTS.md) und dessen
+Abgeschlossene `*_RESULTS.md`- und Aktivierungsnachweise liegen seit dem
+4. Oktober 2026 in [archived](archived/README.md); aktiv bleibt nur die
+[Fähigkeitsmatrix zu Goal 34](AGENT_SESSION_PLATFORM_RESULTS.md). Sie,
+[Goal 6](goal6/RESULTS.md) und dessen
 [F3/F4-Retests](goal6/F3F4_RETEST.md) dokumentieren eine bestimmte Messung mit
 Plattform, Commit und Grenzen. Frühere Checkzahlen widersprechen einem späteren
 grünen Lauf nicht; sie sind dessen Vorgeschichte. Ergebnisdateien werden bei

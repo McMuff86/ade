@@ -154,7 +154,7 @@ Erkennung der letzten Agentenantwort. [Grenzen und Nachweise](REPLY_SPEECH.md).
 
 ## Passive WSL discovery / Hermes (16 September 2026)
 
-Listing execution environments must not start WSL distributions. Registration makes a backend selectable; only an explicit backend operation may start it and validate runtime health. [Diagnose und Nachweise](HERMES_WSL_DIAGNOSIS.md).
+Listing execution environments must not start WSL distributions. Registration makes a backend selectable; only an explicit backend operation may start it and validate runtime health. [Diagnose und Nachweise](archived/HERMES_WSL_DIAGNOSIS.md).
 
 ## Persönliche Stimme (Goal 33.0b)
 
@@ -260,7 +260,7 @@ diesem Gerät gespeichert; Aufnahme und API-Key werden dort nicht gespeichert.
 Am Tablet benötigt Diktat die eigene Gerätefreigabe sowie Browser-Mikrofonzugriff.
 Geschützte Promptziele sind neu gestartete native Windows-Codex/Claude/Grok-CLIs
 mit aktivem mehrzeiligem Paste. Tatsächliche Providerabnahme bleibt separat:
-[Implementierungsnachweis](DICTATION_IMPLEMENTATION_RESULTS.md).
+[Implementierungsnachweis](archived/DICTATION_IMPLEMENTATION_RESULTS.md).
 
 Mobile bietet einen sichtbaren Zugang „Einstellungen“ mit Stimmenwahl und
 Stimmtest. Die Gerätefreigabe „Stimmen wählen und ElevenLabs-Stimmtests
@@ -378,7 +378,7 @@ haltbare Ergebnisdateien und Ergebnisseiten sind implementiert. Vollständiges
 Die geprüfte ADE-Kopie läuft mit dem persönlichen Profil; private HTTPS-Adresse,
 bestehende Samsung-Kopplung, fünf Projekte und sechs Agentenprofile sind geprüft.
 Physisches Samsung/DeX und das nicht antwortende Ubuntu bleiben offen.
-[Teilziele](TABLET_WORKSPACE_GOALS.md), [Abnahme und Operatorzustand](TABLET_WORKSPACE_RESULTS.md).
+[Teilziele](TABLET_WORKSPACE_GOALS.md), [Abnahme und Operatorzustand](archived/TABLET_WORKSPACE_RESULTS.md).
 Die darunter genannten älteren Gesamtprüfungen gelten für ihre damaligen Stände.
 
 ## First setup without an agent profile
@@ -577,12 +577,12 @@ execution host and the desktop becomes a client alongside mobile (see
 "Unabhängiger ADE-Host" above).
 
 References:
-- Layout sketch: `mock/PENUP_20260707_214207.png`
-- Approved clickable mockup: `mockup/index.html` (visual reference for
+- Layout sketch: `docs/archived/origin/mock/PENUP_20260707_214207.png`
+- Approved clickable mockup: `docs/archived/origin/mockup/index.html` (visual reference for
   layout, spacing, copper accent)
 - Superset (`reference/superset`, Elastic 2.0) — architecture donor
 - Hermes (`reference/hermes-agent`, MIT) — memory system donor
-- Conductor screenshots (`mock/Screenshot1.png`, `Screenshot2.png`) — tab feel,
+- Conductor screenshots (`docs/archived/origin/mock/Screenshot1.png`, `Screenshot2.png`) — tab feel,
   explicitly WITHOUT macOS traffic-light styling
 
 ## Core model

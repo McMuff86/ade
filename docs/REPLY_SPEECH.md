@@ -6,7 +6,7 @@ drei TypeScript-Projekte, 74 Suiten / 3.232 Fachprüfungen, Produktionsbuild und
 alle Electron-/Browserdriver. Der Sammelaufruf endete mit einem Windows-Pfadfehler
 (Exit 1); die verbleibenden sieben Driver bestanden einzeln auf demselben Build.
 Der Vorlesedriver besteht 34 Bedienprüfungen.
-[Release, Sicherung und Aktivierung](REPLY_SPEECH_ACTIVATION.md).
+[Release, Sicherung und Aktivierung](archived/REPLY_SPEECH_ACTIVATION.md).
 
 ## Bedienung
 

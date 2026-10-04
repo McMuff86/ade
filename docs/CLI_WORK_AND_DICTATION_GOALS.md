@@ -32,7 +32,7 @@ gesichert, Remote-SHA abgeglichen. Die anschliessenden Orientierungsdetails aus
 Goal 27.2 sind implementiert und fokussiert geprüft. Das begrenzte Verbrauchsjournal
 und die native CLI-/Diktat-Sitzungsanzeige sind inzwischen angebunden; Projekt-/
 Monatssummen und Budgets bleiben offen. Physische Tablet-/WAN-Abnahme ist gesondert.
-[CLI-Nachweise](CLI_WORK_LATENCY_RESULTS.md), [Diktat-Nachweise](DICTATION_IMPLEMENTATION_RESULTS.md).
+[CLI-Nachweise](archived/CLI_WORK_LATENCY_RESULTS.md), [Diktat-Nachweise](archived/DICTATION_IMPLEMENTATION_RESULTS.md).
 
 Erweiterung des aktiven Ziels auf weiteren Operatorauftrag: die Dokumentation
 vollständig gegen den aktuellen Code und die tatsächlichen Abnahmen prüfen

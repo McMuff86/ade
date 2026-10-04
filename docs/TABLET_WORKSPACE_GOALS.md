@@ -15,7 +15,7 @@ Prüfung des tatsächlich ausgelieferten Tablet-Zugangs ausdrücklich verlangt.
 | A6 | Dokumentation/Guide synchron, fokussierte Prüfungen und vollständiges pnpm verify; sichere feste Releasekopie, ADE-Neustart und echte private HTTPS-/Projekt-/Agent-Prüfung | abgeschlossen: 2.770 Verify-Prüfungen, feste Kopie gestartet, HTTPS/Assets/Kopplung/fünf Projekte/sechs Profile geprüft; physische und WSL-Grenzen unter A5 |
 
 Gemessene Schlussabnahme und verbleibende Operatorpunkte:
-[TABLET_WORKSPACE_RESULTS](TABLET_WORKSPACE_RESULTS.md). Der gesamte Auftrag wird
+[TABLET_WORKSPACE_RESULTS](archived/TABLET_WORKSPACE_RESULTS.md). Der gesamte Auftrag wird
 wegen der offenen physischen Tablet-/Ubuntu-Prüfung noch nicht als vollständig
 erledigt bezeichnet.
 

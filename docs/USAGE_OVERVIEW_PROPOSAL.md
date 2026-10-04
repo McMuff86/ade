@@ -4,7 +4,7 @@ Stand 23. September 2026. Anlass: Adi wollte auf dem Tablet und am PC sehen,
 wie viel Tokens verbraucht sind und wie weit die Abo-Limits von Codex und
 Claude ausgeschöpft sind, ohne in jeder CLI `/status` oder `/usage` zu tippen.
 Verwandt: [USAGE_AND_COST_GOALS.md](USAGE_AND_COST_GOALS.md) (Ziele der
-Nutzungserfassung), [USAGE_SOURCE_RESULTS.md](USAGE_SOURCE_RESULTS.md) (was die
+Nutzungserfassung), [USAGE_SOURCE_RESULTS.md](archived/USAGE_SOURCE_RESULTS.md) (was die
 CLIs lokal tatsächlich liefern), [ARCHITECTURE.md](ARCHITECTURE.md) („ADE host
 API“ zur Route `/api/v1/usage/overview`).
 

@@ -10,7 +10,7 @@ werden erweitert, nicht durch eine zweite Zielnummer ersetzt.
 Inzwischen liegen begrenzte **echte native Quellenproben für alle drei CLIs**
 vor, mit wichtigen Unterschieden bei vorbereitenden Codex-Zählern, Claude-
 Hilfsmodellen und Grok-Cache-/Kostenformaten. Der
-[Quellennachweis](USAGE_SOURCE_RESULTS.md) führt die Implementierungsentscheidung;
+[Quellennachweis](archived/USAGE_SOURCE_RESULTS.md) führt die Implementierungsentscheidung;
 er belegt Quellen und Grenzen der inzwischen integrierten Sitzungsansicht.
 
 Arbeitsstand nach Diktatcommit `128b503`: Normalisierung, begrenztes Zahlenjournal,

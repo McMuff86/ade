@@ -1,6 +1,6 @@
 /*
  * Design tokens — all colors live here as custom properties, keyed by
- * :root[data-theme]. Dark palette comes verbatim from mockup/index.html.
+ * :root[data-theme]. Dark palette comes verbatim from docs/archived/origin/mockup/index.html.
  * Light is the same hue family on a warm paper ground (not an inversion).
  *
  * --app-bg-layer is the dedicated background layer token (SPEC #9): a

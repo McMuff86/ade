@@ -133,7 +133,7 @@ Es wurde keine zweite Betreiberinstanz gestartet und der Build bleibt `03175c4`.
 Die Tastaturaktivierung aus `02330e1` wurde gebaut und am 9. September um 18:45
 auf dem privaten Mobile-Listener aktiviert. Dabei blieben die vorhandene
 ADE-Instanz und ihre Codex-Sitzung erhalten. Der nachfolgende Dokumentationscommit
-war `8433e7d`. Details: [Keyboard activation results](../TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md).
+war `8433e7d`. Details: [Keyboard activation results](TERMINAL_KEYBOARD_ACTIVATION_RESULTS.md).
 
 Der Nutzer meldet danach eine verbesserte Darstellung/Bedienung. Eine vollständige
 physische Matrix für Samsung-Tastatur, DeX, Hochformat, externe Tastatur und

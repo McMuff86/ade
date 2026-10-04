@@ -8,10 +8,10 @@ Sitzungszustände, anschliessend Workspace-Orientierung. Die Abnahme und Aktivie
 des Shell-/Git-Builds ist abgeschlossen: persönlich aktiviert am 18. September
 um 00:17 CEST. Der anschliessende Stabilisierungsblock und die Workspace-Info
 sind vollständig geprüft und seit 01:54 CEST persönlich aktiviert:
-[Ergebnisse](TABLET_RECOVERY_RESULTS.md). Der danach hinzugekommene Sprachauftrag
+[Ergebnisse](archived/TABLET_RECOVERY_RESULTS.md). Der danach hinzugekommene Sprachauftrag
 ist ebenfalls vollständig geprüft und seit **03:25 CEST** aktiviert, einschliesslich
 zweier zusätzlicher Korrekturen für Terminalaktionen bei gleichzeitigem Heartbeat:
-[Eleven v3 und Adi](ELEVEN_V3_RESULTS.md).
+[Eleven v3 und Adi](archived/ELEVEN_V3_RESULTS.md).
 
 ## 1. Dringend: den tatsächlichen Tablet-Alltag abnehmen
 
@@ -36,7 +36,7 @@ Neustart nach Abschluss. Dabei wurde eine Änderung von `AGENTS.md` beim Start
 gefunden und behoben; Profil/Memory werden direkt als Kontext übergeben.
 Die Gesamtabnahme dieser Korrektur ist bestanden; sie ist seit **04:15 CEST**
 aktiviert, Source `5cf7ef2ca9b2b4a1ad54`.
-[Nachweise](TABLET_CODEX_NATIVE_RESULTS.md). Offen bleibt der folgende physische
+[Nachweise](archived/TABLET_CODEX_NATIVE_RESULTS.md). Offen bleibt der folgende physische
 Bediennachweis auf Adis Samsung.
 
 Im bestehenden isolierten Testprojekt vom Tablet aus einen Auftrag vorschlagen,

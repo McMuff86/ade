@@ -177,7 +177,7 @@ mit Codex, Claude Code und Grok, sofern die CLI das Paste-Protokoll aktiviert ha
 WSL-Assistenten und eigene Startbefehle verwenden weiterhin ihre direkte
 Terminaleingabe. Der lokale Tablet-Browserablauf ist automatisiert geprüft;
 physisches Mikrofon und die eigene Mobilverbindung separat ausprobieren.
-[Abnahme und Grenzen](DICTATION_IMPLEMENTATION_RESULTS.md).
+[Abnahme und Grenzen](archived/DICTATION_IMPLEMENTATION_RESULTS.md).
 
 Du brauchst keinen Run, um interaktiv mit Codex, Claude oder Grok zu arbeiten.
 

@@ -1,7 +1,7 @@
 # Live-Aktivität und Rückfragen während eines Runs
 
 Stand: 12. September 2026. A3 implementiert; native Windows-Gesamtabnahme und
-persönlicher ADE-Neustart bestanden: [Ergebnisse](TABLET_WORKSPACE_RESULTS.md).
+persönlicher ADE-Neustart bestanden: [Ergebnisse](archived/TABLET_WORKSPACE_RESULTS.md).
 
 Der Benutzer möchte im Graph verfolgen, welche Befehle, Dateien und Werkzeuge
 ein Agent verwendet, und dessen Rückfragen während der Arbeit beantworten.

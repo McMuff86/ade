@@ -6,7 +6,7 @@ Terminalgeschwindigkeit und einen zweiten Tailscale-PC ausarbeiten.
 Historischer Ausbauplan mit Fortschrittsabgleich vom 15. September: CLI-Übersicht
 und erste native Latenzoptimierung sind geprüft; Prompteditor und Diktat sind an
 Desktop/Mobile integriert. Die aktuelle Abnahme steht in den
-[Diktat-Nachweisen](DICTATION_IMPLEMENTATION_RESULTS.md). Kostenjournal und
+[Diktat-Nachweisen](archived/DICTATION_IMPLEMENTATION_RESULTS.md). Kostenjournal und
 Multi-Host bleiben offene Lieferziele.
 
 Priorisierung vom 15. September: Goal 23.1 wird jetzt nach der gemeinsamen
@@ -129,7 +129,7 @@ eine arbeitende CLI. API-RPS/TPM-Limits sind kein verbleibendes Abo-Guthaben.
 
 Fortschreibung vom 15. September: Der Projektpfad wurde inzwischen gemessen
 und optimiert; direkter Topologieabgleich, bedingte Frames und kürzere
-Eingabepuffer stehen im [aktuellen CLI-/Latenz-Nachweis](CLI_WORK_LATENCY_RESULTS.md).
+Eingabepuffer stehen im [aktuellen CLI-/Latenz-Nachweis](archived/CLI_WORK_LATENCY_RESULTS.md).
 Die folgenden Screenshotwerte und Vermutungen dokumentieren den Ausgangspunkt.
 
 Der Screenshot meldet 668 ms „PC-Antwort“. Das ist nicht direkt die Zeit bis
@@ -137,7 +137,7 @@ zum gezeichneten Buchstaben. ADE puffert Tasten bereits nur 16 ms; die Anzeige
 fragt aktuell nach Antwort/Änderung nach 40 bzw. 100 ms erneut ab.
 Frühere lokale Tests lagen teils bei 70–72 ms, native TUI-Tests bei 128/248 ms;
 diese Werte sind keine Abnahme des jetzigen Tablet-Projektpfads.
-[Frühere Messung](TERMINAL_LATENCY_RESULTS.md).
+[Frühere Messung](archived/TERMINAL_LATENCY_RESULTS.md).
 
 Konkreter Verdacht aus aktuellem Code: `RemoteWorkbenchService.resolve` und
 `revalidate` rufen für unabhängige Projekte wiederholt `ProjectWorkspaceService.resolve`

@@ -1,5 +1,5 @@
 /* Right panel shell (RightPanel.tsx): frame, tabs, content host and the
-   list/preview splitter. Layout mirrors mockup/index.html .changes. */
+   list/preview splitter. Layout mirrors docs/archived/origin/mockup/index.html .changes. */
 
 .rp {
   display: flex;

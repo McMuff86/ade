@@ -2,7 +2,7 @@
 
 17. September 2026, Fortsetzung ab `aacbc6c`. Adi hat den nächsten Einstieg,
 Weiterarbeit mit Goals und zuerst den Codex-Ablauf beauftragt. Die Pause aus dem
-[Kontexthandoff](CONTEXT_HANDOFF_2026-09-17.md) ist damit aufgehoben.
+[Kontexthandoff](archived/CONTEXT_HANDOFF_2026-09-17.md) ist damit aufgehoben.
 Claude/Grok und Sprachausgabe folgen nach diesem ersten Tablet-Test.
 
 ## Ziel und Lieferfolge

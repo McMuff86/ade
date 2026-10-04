@@ -63,14 +63,14 @@ the agent's name, role or photo. A separate desktop device grant enables a real
 host shell or configured agent session, with exclusive input ownership and
 immediate desktop reclaim. New flows are tested on native Windows;
 [activation and grants](docs/REMOTE_TERMINAL_GUIDE.md),
-[scope and evidence](docs/REMOTE_WORKBENCH_RESULTS.md).
+[scope and evidence](docs/archived/REMOTE_WORKBENCH_RESULTS.md).
 
 **Remote projects** — the private Tailscale companion can create agents from
 host profiles, initialize projects and prepare isolated workspaces. Filter
 Work/Graph by project and agent, retain task/terminal drafts across reloads, and preview
 Git updates. Desktop-granted device permissions also enable an idle-only ADE
 restart on native Windows source launches. [Setup and limits](docs/goal8/MOBILE_CONNECT_GUIDE.md)
-and [validation evidence](docs/REMOTE_WORKSPACE_RESULTS.md).
+and [validation evidence](docs/archived/REMOTE_WORKSPACE_RESULTS.md).
 
 **Git-Abgleich** — compare main and agent worktrees in Graph, the repository
 inspector or New Run. Explicitly fetch origin, choose a local/remote basis and
@@ -109,7 +109,7 @@ requires a newly started native Codex, Claude Code or Grok invocation with
 paste support (native Windows; on native Linux via the protected prompt path,
 measured with Codex 0.159.0). Custom commands and WSL assistants keep their
 existing terminal workflow. Unconfirmed sends retain the draft without automatic
-resubmission. [Implementation and evidence](docs/DICTATION_IMPLEMENTATION_RESULTS.md).
+resubmission. [Implementation and evidence](docs/archived/DICTATION_IMPLEMENTATION_RESULTS.md).
 
 <p align="center">
   <img src="docs/media/terminals.png" alt="Terminals view: agent rail, live PTY session and repository inspector" width="92%">

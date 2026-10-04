@@ -4,7 +4,7 @@ Adi hat Gespräch → Agentenvorschlag → Projektanlage inklusive AGENTS.md und
 anschliessendem Arbeitsbeginn beauftragt. Der erste Testbuild um 21:34 unterstützte
 nur die Anlage. Der Stabilisierungsschritt ergänzt den bestätigten Erstauftrag
 und Direct/Observe → Koordinieren für vorhandene Projekte.
-Aktueller Prüf-/Betriebsstand: [Tablet-Recovery](TABLET_RECOVERY_2026-09-25.md).
+Aktueller Prüf-/Betriebsstand: [Tablet-Recovery](archived/TABLET_RECOVERY_2026-09-25.md).
 
 ## Vertrag
 
@@ -85,5 +85,5 @@ Antwort, Teilfehler/Neustart, Rechteentzug, historischer Kontext und Fortsetzung
 Tastatur/Fokus, schmale Tabletansicht und kombinierter Auftrag bis zum Ergebnis.
 Scope-/Toolanzahl-Tests wurden an den geänderten Verlaufsvertrag angepasst.
 Aktivierung, genaue Zahlen und verbleibende Grenzen stehen im
-[Recovery-Beleg](TABLET_RECOVERY_2026-09-25.md). Offen: physischer Tablet-Test,
+[Recovery-Beleg](archived/TABLET_RECOVERY_2026-09-25.md). Offen: physischer Tablet-Test,
 echte neue private GitHub-Anlage und vollständiger aktueller `pnpm verify`.

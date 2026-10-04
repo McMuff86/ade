@@ -31,7 +31,7 @@ Recovery requires both the exact child receipt and any planned supervision
 receipt. Partial creation or submitted work without confirmed coordination stays
 uncertain and never triggers another launch. Results/questions and derived graph
 links work for project-plus-task proposals as well as existing-project tasks.
-[Recovery and current evidence](TABLET_RECOVERY_2026-09-25.md).
+[Recovery and current evidence](archived/TABLET_RECOVERY_2026-09-25.md).
 
 ## Conversation project creation and history (25 September 2026)
 
@@ -291,7 +291,7 @@ only measurements. Shutdown drains cancelled requests before closing usage.
 
 ## Passive WSL discovery / Hermes (16 September 2026)
 
-WSL discovery (`wsl:list`) only enumerates registered names through `wsl.exe --list --quiet`. It must never execute a guest health probe: even `true` boots systemd services and can trigger shutdown notifications when WSL later idles. `available` means registered for selection. Explicit backend operations retain runtime validation. [Diagnose und Nachweise](HERMES_WSL_DIAGNOSIS.md).
+WSL discovery (`wsl:list`) only enumerates registered names through `wsl.exe --list --quiet`. It must never execute a guest health probe: even `true` boots systemd services and can trigger shutdown notifications when WSL later idles. `available` means registered for selection. Explicit backend operations retain runtime validation. [Diagnose und Nachweise](archived/HERMES_WSL_DIAGNOSIS.md).
 
 ## Explicit Computer voice test (Goal 33.0)
 
@@ -318,7 +318,7 @@ explicitly maps stability to request-local `voice_settings`. The shared voice
 settings show only supported controls, the v3 model and the short-A name rule. No provider-account
 settings are changed. The shared Settings/Stimme tab uses the existing signed,
 idempotent speech command, global-target authorization and recovery drafts;
-IPC policy and generic remote allowlists stay unchanged. [Current contract](ELEVEN_V3_RESULTS.md).
+IPC policy and generic remote allowlists stay unchanged. [Current contract](archived/ELEVEN_V3_RESULTS.md).
 The greeting is one short question by host time of day („Guten Abend, Adi. Was
 kann ich für dich tun?“, 2026-09-27); the earlier four-sentence version told the
 user to choose Diktieren, which the tablet strip has done by itself since phase 3.
@@ -613,7 +613,7 @@ navigation (`Sec-Fetch-Mode: navigate`, `Sec-Fetch-Dest: document`). Every API
 and subresource retains origin checks; host/Funnel checks precede the exception.
 The shell worker reissues public navigations from its own origin without
 credentials and uses cached public assets after HTTP failure. No API caching.
-[Behavior and evidence](TABLET_POLISH_RESULTS.md).
+[Behavior and evidence](archived/TABLET_POLISH_RESULTS.md).
 
 ## Mobile workspace commit history
 
@@ -637,7 +637,7 @@ interleaved. The existing full-permutation `category:reorder` and indexed
 The renderer serializes its moves, announces saving/errors and reloads the
 catalog after a mutation. Ordering is unavailable while search filters rows.
 Escape closes ordering with focus restored to its toggle. See
-[validation and operator state](RAIL_ORDERING_RESULTS.md).
+[validation and operator state](archived/RAIL_ORDERING_RESULTS.md).
 
 ## Completed run deletion from mobile
 
@@ -732,7 +732,7 @@ resynchronizes the Copy button with the actual selection after each search;
 reselecting the same match can emit only the intermediate clear event in xterm.
 Clipboard uses the existing desktop IPC. Input ownership still gates paste and
 PTY writes; no new IPC channel, remote permission or provider option is added.
-Behavior and validation: [Workspace terminals](WORKSPACE_TERMINALS_RESULTS.md).
+Behavior and validation: [Workspace terminals](archived/WORKSPACE_TERMINALS_RESULTS.md).
 
 `MobileTerminalSelection` adds `{ terminalHome: true }` only to the dedicated
 terminal APIs and existing desktop session channels. Main resolves the native
@@ -1149,7 +1149,7 @@ WSL/custom/assistant sessions explain that structured delivery is unavailable.
 Those sessions retain their existing direct terminal and dashboard access.
 CLI login/trust dialogs must be completed directly in the terminal first; paste
 support alone does not identify a ready composer. Current evidence:
-[dictation implementation results](DICTATION_IMPLEMENTATION_RESULTS.md).
+[dictation implementation results](archived/DICTATION_IMPLEMENTATION_RESULTS.md).
 
 ## Mobile project entry
 
@@ -1334,7 +1334,7 @@ Ollama sessions remain runtime `ollama` and never enter the OpenAI subscription
 collector. Interactive token collection is not implemented. Direct session
 choice `ollama` remains chat; saved-profile choice preserves mode and harness
 on PC/tablet. No remote command allowlist or host path exposure is added.
-[Goal 31 and evidence](OLLAMA_HARNESS_GOALS.md), [earlier evidence](OLLAMA_RESULTS.md).
+[Goal 31 and evidence](OLLAMA_HARNESS_GOALS.md), [earlier evidence](archived/OLLAMA_RESULTS.md).
 
 `harness:models` is a desktop-only audited launch channel with strict runtime/
 backend inputs. `RuntimeModelService` runs bounded CLI metadata probes in that
@@ -1839,7 +1839,7 @@ continuity across a host end and no operation before login are claimed.
 
 - pnpm, TypeScript strict, Electron (latest stable), electron-vite, React 19.
 - State: Zustand. Styling: plain CSS with design tokens (custom properties)
-  taken from `mockup/index.html` — no Tailwind.
+  taken from `docs/archived/origin/mockup/index.html` — no Tailwind.
 - Panels: `react-resizable-panels` (rail / center / right panel).
 - Terminal: `@xterm/xterm` + `@xterm/addon-fit` (+ unicode11; webgl optional
   behind a capability check).
@@ -1914,7 +1914,7 @@ src/
     ipc.ts                 # IPC channel names + payload types (contract)
     runtimes.ts            # launch profiles incl. permission-mode flags
 docs/                      # SPEC, this file, reports/
-mock/  mockup/             # references (kept)
+docs/archived/origin/   # mock/, mockup/, original brief (references, kept)
 reference/                 # cloned Superset/Hermes — git-ignored
 ```
 

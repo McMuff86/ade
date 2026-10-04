@@ -1,6 +1,6 @@
 /**
  * Avatar — personal photo, bundled runtime logo, or an initials-on-gradient
- * fallback. The gradient hue set is lifted verbatim from mockup/index.html;
+ * fallback. The gradient hue set is lifted verbatim from docs/archived/origin/mockup/index.html;
  * the hue is chosen deterministically from a seed so a given category/agent
  * always keeps the same colour.
  */
