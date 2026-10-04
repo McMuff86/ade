@@ -6,7 +6,7 @@ lesen (Haltepunkt, offene Benutzerentscheide, Code-Landkarte H1, Stolpersteine).
 ## Stabilisierung vor H2c (4. Oktober 2026, abends)
 
 Auf Benutzerauftrag Feature-Stopp an der H2b-Grenze; kein Produktcode geändert,
-keine persönliche Aktivierung (Instanz läuft weiter aus dem Build vom 2. Oktober).
+persönliche Aktivierung siehe unten.
 
 - **Git:** alle gemergten Branches lokal und auf GitHub gelöscht; es bleiben
   `main` und lokal `feat/coordinator-linux` (auf Wunsch behalten).
@@ -29,6 +29,13 @@ keine persönliche Aktivierung (Instanz läuft weiter aus dem Build vom 2. Oktob
   (9,0 GB → 195 MB); zitierte Logs und JSON-Belege bleiben.
 - **Nur durch den Benutzer:** siehe
   [ROADMAP, offene Abnahmen](ROADMAP.md#offene-abnahmen-durch-den-benutzer).
+- **Persönlich aktiviert (4. Oktober 2026, 21:26 CEST):** Commit `32f2b17`
+  (Tag `v0.1.0-stable.1`) über `pnpm activate -- -Label Stable1`. Vorher lief
+  keine ADE-Instanz (Port 4317 frei). Gate 14/0/1 nicht gemessen; neuer Host
+  **PID 4009266**, Quelle `00567b74157e5f033baa`; Backup
+  `~/ADE-Backups/Activate-Stable1-2026-10-04T19-26-17-199Z`. HTTPS `:8443`
+  liefert 200; Tailscale Serve unverändert. Tablet-Abnahme durch den Benutzer
+  läuft. Rollback: `pnpm activate -- -Rollback`.
 - **Nächster Schritt:** H2c ([HOST_SECRETS_H2](HOST_SECRETS_H2.md)).
 
 ## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)
