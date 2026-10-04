@@ -1629,6 +1629,7 @@ export const messagesEn = {
   " · Unchecked": " · Unchecked",
   "Agents · Order determines the roles": "Agents · Order determines the roles",
   "Allow questions (native Codex agents)": "Allow questions (native Codex agents)",
+  "Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you answer it with a new job.": "Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you answer it with a new job.",
   "Run name": "Run name",
   "Name (optional)": "Name (optional)",
   "Objective": "Objective",

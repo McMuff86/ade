@@ -466,6 +466,12 @@ the same pre-dispatch wait before its query/open transaction. The same native
 driver covers queued release, duplicate taps, disconnect cancellation and deliberate
 takeover/release afterwards.
 
+Ended sessions (2026-10-04). A session whose CLI ended by itself (for example
+`/exit`) has no lease left to renew: the pane sends no heartbeat for it, and
+`close` is the one command `RemoteTerminalService` accepts for an ended session,
+without input control but still under the device's visibility and scope checks.
+Claim, input and prompt delivery keep requiring a running session.
+
 Input resume (2026-09-27). A tablet lease lasts 30 seconds past the last accepted
 input or heartbeat, and only the visible, active pane heartbeats, so switching to
 another session or letting the tablet sleep hands the input to the desktop.

@@ -50,8 +50,9 @@ Wechsel zwischen beiden. Offene Punkte daraus:
 | Punkt | Befund | Stand |
 |---|---|---|
 | Terminal-Sitzung wartet auf Eingabe | Eine interaktive CLI, die ihren Turn mit einer Rückfrage beendet hat, steht unter „Arbeitet“; ADE leitet aus dem laufenden Prozess bewusst keine Modellaktivität ab. Gewünscht: ein bestätigter Zustand „wartet auf dich“ unter „Braucht dich“, gespeist aus einem Turn-Ende-Signal der CLI (Hook/Notify von Codex und Claude Code), nicht aus Terminalruhe | beauftragt, nicht begonnen; Signalwege noch nicht geprüft |
-| Auftrag endet mit Rückfrage | Ein einmaliger Claude-Code-Auftrag, dessen Antwort nur eine Rückfrage ist, erscheint als „Abgeschlossen“ (Exit 0, 0 Dateien); im Graph lässt sich nicht antworten. Beantwortbare Rückfragen gibt es nur für native Codex-Agenten mit „Rückfragen erlauben“ | Befund, nicht beauftragt |
-| Überlappung im Tablet-Graph | Betreuungsplan-Kopf und Run-Leiste lagen übereinander | behoben, Treibernachweis Sitzungsnavigation 97/0 mit Negativkontrolle; noch nicht persönlich aktiviert |
+| Auftrag endet mit Rückfrage | Ein einmaliger Claude-Code-Auftrag, dessen Antwort nur eine Rückfrage ist, erscheint als „Abgeschlossen“ (Exit 0, 0 Dateien); im Graph lässt sich nicht antworten. Beantwortbare Rückfragen gibt es nur für native Codex-Agenten mit „Rückfragen erlauben“ | teilweise: der Auftragsdialog sagt jetzt vorab, dass ohne die Option nicht zurückgefragt werden kann. Offen: Antwort auf einen beendeten Auftrag mit Fortsetzung derselben CLI-Unterhaltung (Entwurf nötig, nicht begonnen) |
+| Überlappung im Tablet-Graph | Betreuungsplan-Kopf und Run-Leiste lagen übereinander | behoben, Treibernachweis Sitzungsnavigation 97/0 mit Negativkontrolle |
+| Beendete CLI-Sitzung am Tablet | Nach `/exit` lehnte der Host Lebenszeichen und „Terminal beenden“ ab; die Fehlermeldung erschien alle zehn Sekunden, verschob den Knopf, und die Sitzung liess sich nicht entfernen | behoben (Host und Tablet), Remote-Terminal 84/0, Linux-Agent-Tablet 58/0 |
 
 ## Beauftragt: Goal 35 — Zugang für Aufsichts-Sessions (3. Oktober 2026)
 

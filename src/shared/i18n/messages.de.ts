@@ -1630,6 +1630,7 @@ export const messagesDe: Record<keyof typeof messagesEn, string> = {
   " · Unchecked": " · ungeprüft",
   "Agents · Order determines the roles": "Agents · Reihenfolge bestimmt die Rollen",
   "Allow questions (native Codex agents)": "Rückfragen erlauben (native Codex-Agenten)",
+  "Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you answer it with a new job.": "Ohne diese Option kann der Agent während des Auftrags nicht zurückfragen. Eine Rückfrage in seiner Antwort beendet den Auftrag; du beantwortest sie mit einem neuen Auftrag.",
   "Run name": "Run-Name",
   "Name (optional)": "Name (optional)",
   "Objective": "Ziel",

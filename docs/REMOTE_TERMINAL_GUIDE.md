@@ -71,7 +71,9 @@ bearbeiten. Namens-/Rollenänderungen aktualisieren auch seine ADE-Rollenanweisu
    längeren Text bei Bedarf über **Text verfassen → Text und Enter senden** abschicken;
    die Tastenleiste stellt Enter, Tab, Escape, Ctrl+C und Pfeiltasten bereit.
 5. **Eingabe freigeben** übergibt die Steuerung an den Desktop. **Sitzung beenden**
-   beendet nach Bestätigung den Prozess. Das Schliessen der Tablet-Ansicht
+   beendet nach Bestätigung den Prozess. Hat sich die CLI bereits selbst beendet
+   (etwa mit `/exit`), entfernt **Terminal beenden** die beendete Sitzung auch
+   ohne Eingabesteuerung. Das Schliessen der Tablet-Ansicht
    beendet die Sitzung nicht. Ohne Lebenszeichen läuft die Freigabe nach
    30 Sekunden aus. Am Desktop ist eine sofortige Übernahme möglich. Kehrt das
    Tablet innerhalb von 10 Minuten zu dieser Sitzung zurück und hat weder der
