@@ -36,6 +36,17 @@ persönliche Aktivierung siehe unten.
   `~/ADE-Backups/Activate-Stable1-2026-10-04T19-26-17-199Z`. HTTPS `:8443`
   liefert 200; Tailscale Serve unverändert. Tablet-Abnahme durch den Benutzer
   läuft. Rollback: `pnpm activate -- -Rollback`.
+- **Tablet-Test und Korrekturen (4. Oktober 2026, 22:09 CEST):** Befunde und
+  Stand in [ROADMAP](ROADMAP.md#befunde-aus-dem-tablet-test-vom-4-oktober-2026).
+  Behoben: Überlappung im Tablet-Graph (`873a1cc`), beendete CLI-Sitzung liess
+  sich am Tablet nicht entfernen und blendete alle zehn Sekunden eine Ablehnung
+  ein (`c252f6b`), Hinweis im Auftragsdialog (`320e843`). Vollständiges
+  `pnpm verify`: 31/0/16 nicht gemessen, 114 Suiten / 4.737 Checks. Aktiviert
+  über `pnpm activate -- -Label TabletFixes`: Gate 14/0/1 nicht gemessen,
+  vorherige Instanz regulär beendet, neuer Host **PID 225150**, Quelle
+  `16cebfbef53cbc5b1d6f`; Backup
+  `~/ADE-Backups/Activate-TabletFixes-2026-10-04T20-09-18-994Z`; HTTPS `:8443`
+  liefert 200. Offen: Abnahme der Korrekturen und der Codex-Rückfrage am Tablet.
 - **Nächster Schritt:** H2c ([HOST_SECRETS_H2](HOST_SECRETS_H2.md)).
 
 ## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)
