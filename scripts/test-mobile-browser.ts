@@ -216,6 +216,27 @@ void (async () => {
   check('tablet inspector sits beside the graph without making the page modal', await page.getByRole('complementary', { name: 'Run-Details', exact: true }).isVisible() && await page.getByRole('dialog').count() === 0);
   check('tablet layout has no horizontal overflow', await noOverflow());
   await page.screenshot({ path: join(evidence, 'tablet-managed-run.png'), fullPage: true });
+  {
+    // The details column can be widened by drag and by keyboard; the work area keeps its minimum.
+    const details = page.getByRole('complementary', { name: 'Run-Details', exact: true });
+    const divider = page.getByRole('separator', { name: 'Breite der Details', exact: true });
+    const widthOf = async () => Math.round((await details.boundingBox())!.width);
+    const initial = await widthOf();
+    await divider.focus(); await page.keyboard.press('ArrowLeft');
+    check('details divider widens the column by keyboard and reports its value', await widthOf() === initial + 24 && await divider.getAttribute('aria-valuenow') === String(initial + 24));
+    const box = (await divider.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + 200); await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 120, box.y + 200, { steps: 4 }); await page.mouse.up();
+    check('dragging the divider left widens the details column', await widthOf() === initial + 24 + 120);
+    await divider.focus(); await page.keyboard.press('End');
+    const widest = await widthOf();
+    check('the widest setting leaves the work area its minimum and causes no overflow', widest > initial + 144
+      && Math.round((await page.locator('#mobile-view-panel').boundingBox())!.width) >= 320 && await noOverflow());
+    check('the chosen width is remembered on this device', await page.evaluate(() => localStorage.getItem('ade-mobile-inspector-width')) === String(widest));
+    await page.keyboard.press('Home');
+    check('the narrowest setting is the documented minimum', await widthOf() === 280);
+    await page.keyboard.press('ArrowLeft'); await page.keyboard.press('ArrowLeft');
+  }
   await closeInspector();
   const coordinatorNode = page.getByRole('button', { name: 'Agent Coordinator · orchestrator', exact: true });
   await coordinatorNode.focus(); await page.keyboard.press('Enter');
@@ -266,7 +287,7 @@ void (async () => {
   await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   check('a new identity cannot replay an old uncertain command or draft', !(await page.getByRole('heading', { name: 'Antwort noch unklar' }).count()) && await page.getByLabel('Aufgabe', { exact: true }).inputValue() === '');
   check('browser storage is scoped to the new device and contains no revoked draft', await page.evaluate((id) => Object.keys(localStorage)
-    .every((key) => ['ade-mobile-theme', 'ade-mobile-view'].includes(key) || key.startsWith(`ade-work:${id}:`))
+    .every((key) => ['ade-mobile-theme', 'ade-mobile-view', 'ade-mobile-inspector-width'].includes(key) || key.startsWith(`ade-work:${id}:`))
     && !JSON.stringify(localStorage).includes('An uncertain request must never cross a revoked device identity.'), fixture.devices.activeDevices()[0]!.id));
   check('ordinary views use signed catalog/run/host and scoped workspace/session reads', endpoints.every((path) =>
     /^\/api\/v1\/(pair|session|health|host|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)

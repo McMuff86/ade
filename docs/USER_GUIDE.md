@@ -857,6 +857,11 @@ eigenem Startbefehl lassen sich nicht fortsetzen; starte dafür einen neuen Auft
 ADE entscheidet nicht selbst, ob die Antwort des Agenten eine Frage war: Der
 Auftrag bleibt „Abgeschlossen“, das Antwortfeld steht daneben.
 
+Am Tablet lässt sich die Details-Spalte rechts breiter ziehen: den Trenner mit
+dem Punktsymbol links der Spalte ziehen oder ihn fokussieren und die Pfeiltasten
+nutzen (Pos1: schmalste, Ende: breiteste Einstellung). Die Breite wird pro Gerät
+gemerkt; der Arbeitsbereich behält mindestens 320 Pixel.
+
 **Live zuschauen** am PC beziehungsweise **Aktivität** am Tablet zeigt, welche
 Werkzeuge und Dateien der Agent gemeldet hat. Im interaktiven Terminal kannst
 du zusätzlich direkt mit der gewählten CLI arbeiten. Bei einer blockierenden

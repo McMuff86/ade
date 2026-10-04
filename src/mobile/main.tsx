@@ -15,6 +15,7 @@ import { ConnectionDialog, connectionLabel } from './ConnectionStatus';
 import { Overview, RunRow } from './Overview';
 import { Graph } from './Graph';
 import { RunInspector } from './RunInspector';
+import { InspectorResize, useInspectorWidth } from './InspectorResize';
 import { HostRestartSection } from './HostRestartSection';
 import { MobileDiagnostics } from './Diagnostics';
 import { compareBuilds } from '../shared/buildInfo';
@@ -162,6 +163,7 @@ function MobileApp(): JSX.Element {
     }
     select(result.run.id);
   };
+  const inspectorWidth = useInspectorWidth(); const workspaceArea = useRef<HTMLDivElement>(null);
   const inspector = selectedRun && <RunInspector run={selectedRun} participantId={selected?.participantId ?? null} host={host} onSend={(command) => void send(command)} focusVersion={focusVersion} />;
 
   const openSupervisedWork = async (target: SupervisionTarget, current: () => boolean = () => true) => {
@@ -237,7 +239,7 @@ function MobileApp(): JSX.Element {
         <label>{translate("Agent filter")}<select aria-label={translate("Agent filter")} value={agentFilter} onChange={(event) => { setAgentFilter(event.target.value); setSelected(null); }}><option value="">{translate("All agents")}</option>
           {host.catalog?.agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select></label>
         <p>{visibleRuns.filter((run) => !finalStates.has(run.status)).length}{" "}{translate("Open runs in this selection · Task slots apply to all projects.")}</p></div>}
-      <div className={`m-workspace ${selectedRun && !compact ? 'm-inspecting' : ''}`}>
+      <div ref={workspaceArea} className={`m-workspace ${selectedRun && !compact ? 'm-inspecting' : ''}`}>
         <main id="mobile-view-panel" role="tabpanel" aria-labelledby={`view-tab-${view}`} className={`m-view m-view-${view}`} tabIndex={0}>
           {view === 'tasks' || view === 'notes' ? <Suspense fallback={<p role="status">{translate("Loading tasks and notes…")}</p>}><MobileOrganizer host={host} access={admin.state} kind={view === 'tasks' ? 'task' : 'note'} onKind={kind => setView(kind === 'task' ? 'tasks' : 'notes')} onRun={id => { setGraphRunId(id); setView('graph'); select(id); }} /></Suspense>
             : view === 'overview' ? <Overview continuation={<ContinueWork host={host} onProject={openProject}
@@ -262,7 +264,8 @@ function MobileApp(): JSX.Element {
                     : <ul className="m-work-list">{filtered.map((run) => <li key={run.id}><RunRow run={run} selected={selected?.runId === run.id} onSelect={() => select(run.id)} /></li>)}</ul>}
                 </div></div>}
         </main>
-        {inspector && !compact && <aside className="m-inspector" aria-label={translate("Run Details")}><div className="m-inspector-bar"><span>{translate("Details")}</span><button className="m-icon-button" aria-label={translate("Close details")} onClick={clearSelection}><Icon name="close" /></button></div>{inspector}</aside>}
+        {inspector && !compact && <InspectorResize value={inspectorWidth.width} onChange={inspectorWidth.resize} container={workspaceArea} />}
+        {inspector && !compact && <aside id="run-inspector" className="m-inspector" style={{ width: inspectorWidth.width }} aria-label={translate("Run Details")}><div className="m-inspector-bar"><span>{translate("Details")}</span><button className="m-icon-button" aria-label={translate("Close details")} onClick={clearSelection}><Icon name="close" /></button></div>{inspector}</aside>}
       </div>
     </>}
     {inspector && compact && !composer && !settings && !management && <Dialog title={translate("Run Details")} onClose={clearSelection} fallbackId={`view-tab-${view}`} restoreFocusTo={inspectorOpener.current} className="m-inspector-dialog">{inspector}</Dialog>}
