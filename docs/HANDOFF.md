@@ -85,6 +85,13 @@ persönliche Aktivierung siehe unten.
   volles `pnpm verify` bis auf eine inzwischen behobene Fokusprüfung grün;
   die betroffenen Treiber danach einzeln grün (`linux-agent-tablet` 65/0,
   Sitzungsnavigation 97/0). Es läuft genau eine ADE-Instanz.
+- **Aktiviert (5. Oktober 2026, 00:16 CEST):** Commit `4f4c93c` (PNG-App-Symbole
+  für die Installation am Tablet) über `pnpm activate -- -Label InstallIcons`:
+  Gate 14/0/1 nicht gemessen, neuer Host **PID 1493159**, Quelle
+  `360831b451c0264ff5ad`; Backup
+  `~/ADE-Backups/Activate-InstallIcons-2026-10-04T22-16-47-568Z`. Manifest und
+  die drei PNG-Symbole werden über HTTPS `:8443` ausgeliefert. Installation am
+  physischen Tablet noch nicht bestätigt.
 - **Nächster Schritt:** Schlüsselbund-Treiber stabilisieren, dann H2c ([HOST_SECRETS_H2](HOST_SECRETS_H2.md)).
 
 ## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)
