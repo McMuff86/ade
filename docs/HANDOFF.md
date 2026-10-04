@@ -92,6 +92,13 @@ persönliche Aktivierung siehe unten.
   `~/ADE-Backups/Activate-InstallIcons-2026-10-04T22-16-47-568Z`. Manifest und
   die drei PNG-Symbole werden über HTTPS `:8443` ausgeliefert. Installation am
   physischen Tablet noch nicht bestätigt.
+- **Aktiviert (5. Oktober 2026, 00:31 CEST):** Commit `5728396` („Eintrag löschen“
+  in der oberen Aktionsleiste von Notizen und Aufgaben) über
+  `pnpm activate -- -Label NoteDelete`: Gate 14/0/1 nicht gemessen, neuer Host
+  **PID 1599334**, Quelle `d958672fe4a6dcf84243`; Backup
+  `~/ADE-Backups/Activate-NoteDelete-2026-10-04T22-31-03-933Z`. Ein volles
+  `pnpm verify` lief für diesen und den Symbol-Commit nicht mehr; geprüft sind
+  die betroffenen Treiber und das Aktivierungs-Gate.
 - **Nächster Schritt:** Schlüsselbund-Treiber stabilisieren, dann H2c ([HOST_SECRETS_H2](HOST_SECRETS_H2.md)).
 
 ## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)
