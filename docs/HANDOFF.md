@@ -54,6 +54,11 @@ persönliche Aktivierung siehe unten.
   `pnpm verify`: 30 bestanden, **1 Fehler**, 16 nicht gemessen. Der Fehler ist
   der H2b-Treiber `linux-secret-service`, der sporadisch scheitert (4 von 14
   Einzelläufen; siehe ROADMAP). Echte Probe der Fortsetzung mit Modell steht aus.
+- **Aktiviert (4. Oktober 2026, 22:58 CEST):** Commit `5f6cdae` über
+  `pnpm activate -- -Label TaskReply`: Gate 14/0/1 nicht gemessen, neuer Host
+  **PID 664154**, Quelle `63d01a3129c50cd29022`; Backup
+  `~/ADE-Backups/Activate-TaskReply-2026-10-04T20-58-16-258Z`; HTTPS `:8443`
+  liefert 200.
 - **Nächster Schritt:** Schlüsselbund-Treiber stabilisieren, dann H2c ([HOST_SECRETS_H2](HOST_SECRETS_H2.md)).
 
 ## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)
