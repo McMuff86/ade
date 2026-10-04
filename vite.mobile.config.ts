@@ -12,7 +12,7 @@ export default defineConfig({
   plugins: [react(), {
     name: 'ade-public-shell-worker',
     generateBundle(_options, bundle) {
-      const files = ['/', '/manifest.webmanifest', '/icon.svg', ...Object.keys(bundle).map((name) => `/${name}`)];
+      const files = ['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', ...Object.keys(bundle).map((name) => `/${name}`)];
       const version = createHash('sha256').update(JSON.stringify(files)).digest('hex').slice(0, 12);
       this.emitFile({ type: 'asset', fileName: 'sw.js', source: `
 const CACHE = 'ade-mobile-${version}';
