@@ -68,7 +68,8 @@ export class RunInspectionService {
         text: line.mobileText ? clean(line.mobileText, 2000) : line.kind === 'tool' ? clean(line.text.split(':')[0]!.slice(0, 80), 80)
           : line.kind === 'thinking' ? translate("The agent is working on the task…") : line.kind === 'text' ? translate("Agent reply received")
             : line.kind === 'error' ? translate("CLI reports an error; check the result.") : clean(line.text, 200) }));
-      return { id: task.id, participantId: task.participantId, status: task.status, startedAt: task.startedAt, endedAt: task.endedAt, exitCode: task.exitCode,
+      return { ...(task.reply ? { reply: { available: task.reply.available } } : {}),
+        id: task.id, participantId: task.participantId, status: task.status, startedAt: task.startedAt, endedAt: task.endedAt, exitCode: task.exitCode,
         fileChanges: { created: count('created'), modified: count('modified'), deleted: count('deleted'), reported: count('reported'), unknown: count('unknown'), source: changes.source },
         process: session?.status ?? 'unavailable', lastOutputAt: observation?.lastOutputAt, outputBytes: observation?.outputBytes, activity,
         notice: !session && task.status === 'running' ? translate("The job is recorded as running, but its process is unreachable. Check its status on the PC.")

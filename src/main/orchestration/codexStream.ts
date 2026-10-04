@@ -24,6 +24,8 @@ export class CodexActivityParser implements ActivityParser {
   private pending = '';
   private readonly announcedItems = new Set<string>();
   private readonly textDeltas = new Map<string, string>();
+  /** Thread id of this run as reported by `thread.started`; a reply resumes it. */
+  nativeSessionId?: string;
 
   push(chunk: string): ActivityLine[] {
     this.pending += normalizePtyJsonStream(chunk);
@@ -52,6 +54,7 @@ export class CodexActivityParser implements ActivityParser {
     if (type === 'ade.plan') return [{ kind: 'tool', text: 'Plan: ' + (typeof event.text === 'string' ? event.text.slice(0, 4000) : '')
       + (Array.isArray(event.steps) ? event.steps.slice(0, 20).map((step) => { const item = record(step); return `\n${String(item?.status ?? '')}: ${String(item?.step ?? '').slice(0, 500)}`; }).join('') : ''), mobileText: translate("Work plan updated") }];
     if (type === 'thread.started') {
+      if (typeof event.thread_id === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(event.thread_id)) this.nativeSessionId ??= event.thread_id;
       return [{ kind: 'init', text: translate("Codex session started") }];
     }
     if (type === 'turn.started') {

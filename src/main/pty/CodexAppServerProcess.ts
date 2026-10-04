@@ -23,6 +23,8 @@ export interface CodexAppServerOptions {
   prompt: string;
   resultPath?: string;
   schemaPath?: string;
+  /** One-shot task mode: continue this recorded thread instead of starting a new one. */
+  resumeThreadId?: string;
   /** An explicitly owned conversation stays alive between turns. Task mode remains one-shot. */
   conversation?: {
     resumeThreadId?: string;
@@ -106,7 +108,7 @@ export class CodexAppServerProcess implements TaskProcess {
     if (coordinator) assertCoordinatorCodexVersion(initialized);
     this.send({ method: 'initialized' });
     if (coordinator) assertCoordinatorCodexConfig(await this.rpc('config/read', { cwd: this.options.cwd, includeLayers: false }));
-    const resumeThreadId = this.options.conversation?.resumeThreadId;
+    const resumeThreadId = this.options.conversation?.resumeThreadId ?? this.options.resumeThreadId;
     if (resumeThreadId !== undefined && !/^[A-Za-z0-9_-]{1,128}$/.test(resumeThreadId)) throw new Error(translate("Invalid Codex Conversation Identity."));
     if (resumeThreadId) {
       const previous = record((await this.rpc('thread/read', { threadId: resumeThreadId, includeTurns: false })).thread);

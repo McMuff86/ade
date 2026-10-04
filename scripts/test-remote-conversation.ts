@@ -146,7 +146,7 @@ void (async () => {
   const httpKey = randomUUID(); const close = { operation: 'close', conversationId: id };
   const httpClose = await request('/api/v1/conversation/command', close, httpKey); const httpReplay = await request('/api/v1/conversation/command', close, httpKey);
   check('signed HTTP close ends only its conversation and same-key retry is acknowledged', httpClose.status === 200 && httpReplay.status === 200 && (await httpReplay.json() as ConversationReceipt).replayed && service.detail(id).closed);
-  check('generic IPC remote command allowlist remains unchanged', REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit,run:answer');
+  check('generic IPC remote command allowlist remains unchanged', REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit,run:answer,runTask:reply');
   const stale = context(); devices.revoke('tablet');
   await refuses('revoked device cannot use an old signed principal to read history', () => app.conversation(stale, { operation: 'overview' }, false), 'unknown_device');
   unlinkSync(join(root, 'remote/commands.json'));

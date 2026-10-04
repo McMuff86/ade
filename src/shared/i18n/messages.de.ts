@@ -1630,7 +1630,7 @@ export const messagesDe: Record<keyof typeof messagesEn, string> = {
   " · Unchecked": " · ungeprüft",
   "Agents · Order determines the roles": "Agents · Reihenfolge bestimmt die Rollen",
   "Allow questions (native Codex agents)": "Rückfragen erlauben (native Codex-Agenten)",
-  "Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you answer it with a new job.": "Ohne diese Option kann der Agent während des Auftrags nicht zurückfragen. Eine Rückfrage in seiner Antwort beendet den Auftrag; du beantwortest sie mit einem neuen Auftrag.",
+  "Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you can answer it in the result.": "Ohne diese Option kann der Agent während des Auftrags nicht zurückfragen. Eine Rückfrage in seiner Antwort beendet den Auftrag; du kannst sie im Ergebnis beantworten.",
   "Run name": "Run-Name",
   "Name (optional)": "Name (optional)",
   "Objective": "Ziel",
@@ -4036,5 +4036,10 @@ export const messagesDe: Record<keyof typeof messagesEn, string> = {
   "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import.": "{{value1}}: Eigener Startbefehl und Dashboard-Einstellungen sind rechnerspezifisch und wurden nicht übernommen; nach dem Import in den Agent-Einstellungen neu setzen.",
   "ade: Profile instructions require a native Windows or Linux start.": "ade: Profilanweisungen benötigen einen nativen Windows- oder Linux-Start.",
   "ade: Profile instructions exceed the safe Linux argument limit. Shorten the profile.": "ade: Profilanweisungen überschreiten die sichere Linux-Argumentgrenze. Profil kürzen.",
-  "ade: Combined profile instructions exceed the safe snapshot limit.": "ade: Profilanweisungen überschreiten zusammen mit den vorhandenen Anweisungen die sichere Snapshot-Grenze."
+  "ade: Combined profile instructions exceed the safe snapshot limit.": "ade: Profilanweisungen überschreiten zusammen mit den vorhandenen Anweisungen die sichere Snapshot-Grenze.",
+  "Reply to the agent": "Antwort an den Agenten",
+  "Send reply": "Antwort senden",
+  "Sending reply…": "Antwort wird gesendet…",
+  "The agent continues in the same conversation and workspace.": "Der Agent arbeitet in derselben Unterhaltung und im selben Arbeitsordner weiter.",
+  "ade: The workspace of this job has changed. Start a new job instead of replying.": "ade: Der Arbeitsordner dieses Auftrags hat sich geändert. Starte statt einer Antwort einen neuen Auftrag.",
 };

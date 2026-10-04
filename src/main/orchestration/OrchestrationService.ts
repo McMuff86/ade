@@ -32,6 +32,7 @@ import {
   type RunTaskResult,
   type RunTaskStatus,
   type RunTaskSubmission,
+  type RunTaskReplyInput,
   type RunTaskSubmitInput,
   type RunTaskView,
   type RunUsage,
@@ -40,7 +41,7 @@ import {
   type StructuredTaskResult,
   type TaskProvenance,
 } from '../../shared/types';
-import { MANAGED_HARNESS_OVERRIDES } from '../../shared/runtimes';
+import { MANAGED_HARNESS_OVERRIDES, NATIVE_SESSION_ID } from '../../shared/runtimes';
 import { RUN_CONTEXT_MANIFEST_PATH, sha256 } from './contextManifest';
 import { hostPathKey } from '../platform';
 
@@ -177,7 +178,7 @@ export class OrchestrationService {
       })),
       participants: config.runParticipants.map((participant) => ({ ...participant })),
       tasks: tasks.map((task): RunTaskView => {
-        const { prompt, output: _output, fileTracking: _fileTracking, questions: _questions, ...rest } = task;
+        const { prompt, output: _output, fileTracking: _fileTracking, questions: _questions, nativeSessionId: _nativeSessionId, ...rest } = task;
         const digest = this.promptDigestFor(task.id, prompt);
         return {
           ...rest,
@@ -259,6 +260,8 @@ export class OrchestrationService {
       const participant = participants.get(task.participantId);
       const result = resultsByTask.get(task.id);
       return {
+        ...(run.mode === 'manual' && !task.managed ? { reply: { available: this.replyBlocker(config, task) === null } } : {}),
+        ...(task.replyToTaskId ? { replyToTaskId: task.replyToTaskId } : {}),
         id: task.id,
         participantId: task.participantId,
         participantName: participant?.agentName ?? task.participantId,
@@ -1023,6 +1026,9 @@ export class OrchestrationService {
       dependsOn: [],
       attempt: 1,
     }, run);
+    // Claude takes its conversation id from the caller, so a later reply can
+    // resume exactly this conversation. Codex reports its own when it starts.
+    if (agent.runtime === 'claude' && !agent.customCommand?.trim()) task.nativeSessionId = randomUUID();
     const events: RunEvent[] = [...config.runEvents, created, added, queued];
     const tasks = [...config.runTasks, task];
     this.store.save({
@@ -1043,13 +1049,94 @@ export class OrchestrationService {
     return this.requireSubmission({ runId: run.id, taskId: task.id });
   }
 
+  /** Main-only: remember the conversation identity the CLI reported for a running single task. */
+  recordTaskNativeSession(taskId: string, nativeSessionId: string): void {
+    if (!NATIVE_SESSION_ID.test(nativeSessionId)) return;
+    const config = this.store.get();
+    const task = config.runTasks.find((candidate) => candidate.id === taskId);
+    if (!task || task.managed || task.nativeSessionId) return;
+    this.store.save({ runTasks: config.runTasks.map((candidate) => candidate.id === taskId ? { ...candidate, nativeSessionId } : candidate) });
+  }
+
+  /**
+   * Why a reply to this task is not possible, or null when it is. Only the last
+   * finished task of a single-task run can be answered, and only while its
+   * recorded CLI conversation, agent and runtime are still the ones it ran with.
+   * The workspace itself is compared when the reply launches.
+   */
+  private replyBlocker(config: AdeConfig, task: RunTask): string | null {
+    const run = config.runs.find((candidate) => candidate.id === task.runId);
+    if (!run || run.mode !== 'manual' || task.managed) return 'ade: only a single task can be answered';
+    const participants = config.runParticipants.filter((candidate) => candidate.runId === run.id);
+    const tasks = deriveTasks(config.runTasks, config.runEvents).filter((candidate) => candidate.runId === run.id);
+    task = tasks.find((candidate) => candidate.id === task.id) ?? task;
+    if (participants.length !== 1 || participants[0]!.id !== task.participantId) return 'ade: only a single task can be answered';
+    if (tasks.some((candidate) => candidate.status === 'queued' || candidate.status === 'running')) return 'ade: the run still has open work';
+    if (tasks.reduce((last, candidate) => candidate.createdAt >= last.createdAt ? candidate : last, tasks[0]!).id !== task.id) return 'ade: only the last task of a run can be answered';
+    if (task.status !== 'completed' && task.status !== 'failed') return 'ade: this task did not finish';
+    if (!task.nativeSessionId || !task.workspaceDir) return 'ade: this task has no recorded CLI conversation to continue';
+    const agent = config.agents.find((candidate) => candidate.id === participants[0]!.agentId);
+    if (!agent || agent.runtime !== participants[0]!.runtime || agent.customCommand?.trim()
+      || (agent.runtime !== 'claude' && agent.runtime !== 'codex')) return 'ade: the agent of this task changed or cannot continue a conversation';
+    return null;
+  }
+
+  /**
+   * Queue the answer to a finished single task as the next task of the same
+   * run and participant. It carries the answered task's CLI conversation; the
+   * caller launches it like any other single task.
+   */
+  createReplyTask(input: RunTaskReplyInput): RunTaskSubmission {
+    const commandId = normalizeCommandId(input.commandId);
+    const recalled = this.recallCommand<{ runId: string; taskId: string }>('runTask:reply', commandId);
+    if (recalled) return this.requireSubmission(recalled.result);
+    const config = this.store.get();
+    const origin = config.runTasks.find((candidate) => candidate.id === input.taskId && candidate.runId === input.runId);
+    if (!origin) throw new Error(`ade: task not found "${input.taskId}"`);
+    const blocker = this.replyBlocker(config, origin);
+    if (blocker) throw new Error(blocker);
+    const prompt = input.prompt.trim();
+    if (!prompt) throw new Error('ade: task prompt is required');
+    const { task, event: queued } = this.buildTaskRecord(config, {
+      runId: origin.runId,
+      participantId: origin.participantId,
+      prompt,
+      title: prompt.slice(0, 80),
+      phase: 'manual',
+      managed: false,
+      dependsOn: [],
+      attempt: 1,
+    });
+    task.nativeSessionId = origin.nativeSessionId;
+    task.replyToTaskId = origin.id;
+    const events: RunEvent[] = [...config.runEvents, queued];
+    const tasks = [...config.runTasks, task];
+    this.store.save({
+      runs: updateRunStatus(config.runs, origin.runId, tasks, events, task.createdAt),
+      runTasks: tasks,
+      runEvents: events,
+      ...(commandId ? {
+        commandLog: appendCommandLog(config.commandLog, {
+          commandId,
+          channel: 'runTask:reply',
+          createdAt: task.createdAt,
+          resultJson: serializeCommandResult({ runId: origin.runId, taskId: task.id }),
+        }),
+      } : {}),
+    });
+    this.emit();
+    return this.requireSubmission({ runId: origin.runId, taskId: task.id });
+  }
+
   /** Resolve a recorded submission against the current journal-derived state. */
   private requireSubmission(ref: { runId: string; taskId: string }): RunTaskSubmission {
     const snapshot = this.snapshot();
     const run = snapshot.runs.find((candidate) => candidate.id === ref.runId);
     const task = snapshot.tasks.find((candidate) => candidate.id === ref.taskId && candidate.runId === ref.runId);
     if (!run || !task) throw new Error(`ade: submitted task no longer exists "${ref.taskId}"`);
-    return { run: { ...run, budget: { ...run.budget } }, task: { ...task, dependsOn: [...task.dependsOn] } };
+    // The CLI conversation identity stays in main; a submission result crosses IPC.
+    const { nativeSessionId: _nativeSessionId, ...visible } = task;
+    return { run: { ...run, budget: { ...run.budget } }, task: { ...visible, dependsOn: [...task.dependsOn] } };
   }
 
   createManagedTask(input: ManagedTaskInput): RunTask {

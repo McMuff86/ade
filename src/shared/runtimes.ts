@@ -19,6 +19,10 @@ export interface LaunchProfile {
   commands: Record<PermissionMode, string | null>;
 }
 
+/** A recorded CLI conversation to start under (`resume: false`) or continue (`resume: true`). */
+export interface TaskConversation { id: string; resume: boolean }
+export const NATIVE_SESSION_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
 export interface TaskLaunchCommand {
   activityFormat?: 'claude-stream-json' | 'codex-jsonl' | 'grok-streaming-json' | 'qwen-stream-json';
   command: string;
@@ -222,9 +226,15 @@ export function resolveTaskLaunchCommand(
     'runtime' | 'permissionMode' | 'customCommand' | 'ollamaModel' | 'ollamaMode' | 'ollamaHarness' |
     'claudeModel' | 'codexModel' | 'codexReasoningEffort' | 'grokModel' | 'grokReasoningEffort'>,
   platform: 'win32' | 'posix',
+  conversation?: TaskConversation,
 ): TaskLaunchCommand | null {
   const base = resolveLaunchCommand(agent).trim();
   if (!base || agent.runtime === 'shell') return null;
+  // The id is placed in a shell command line; accept only the identity alphabet.
+  if (conversation && !NATIVE_SESSION_ID.test(conversation.id)) throw new Error('ade: invalid CLI conversation identity');
+  if (conversation && (agent.customCommand || (agent.runtime !== 'claude' && agent.runtime !== 'codex') || (agent.runtime === 'codex' && !conversation.resume))) {
+    throw new Error(`ade: runtime "${agent.runtime}" cannot continue a CLI conversation`);
+  }
 
   const prompt = platform === 'win32' ? '"$env:ADE_TASK_PROMPT"' : '"$ADE_TASK_PROMPT"';
   if (agent.customCommand) {
@@ -242,7 +252,8 @@ export function resolveTaskLaunchCommand(
       const pipe = platform === 'win32'
         ? `$env:ADE_TASK_PROMPT | ${base} -p`
         : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${base} -p`;
-      return { command: `${pipe} --output-format stream-json --verbose`, transport: 'stdin', activityFormat: 'claude-stream-json' };
+      const session = conversation ? ` ${conversation.resume ? '--resume' : '--session-id'} ${conversation.id}` : '';
+      return { command: `${pipe}${session} --output-format stream-json --verbose`, transport: 'stdin', activityFormat: 'claude-stream-json' };
     }
     case 'codex': {
       // PowerShell 5.1 corrupts an expanded native argument when the prompt
@@ -252,7 +263,8 @@ export function resolveTaskLaunchCommand(
         ? `$env:ADE_TASK_PROMPT | ${resolveCodexExecCommand(agent.permissionMode, agent)}`
         : `printf '%s\\n' "$ADE_TASK_PROMPT" | ${resolveCodexExecCommand(agent.permissionMode, agent)}`;
       return {
-        command: `${pipe} --json --skip-git-repo-check -`,
+        // `codex exec <options> resume <thread> …` keeps the permission and model options of a first run.
+        command: `${pipe}${conversation ? ` resume ${conversation.id}` : ''} --json --skip-git-repo-check -`,
         transport: 'stdin',
         activityFormat: 'codex-jsonl',
       };

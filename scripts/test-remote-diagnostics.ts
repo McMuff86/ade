@@ -76,7 +76,7 @@ void (async () => {
   check('signed HTTP query reaches the diagnostics route', http.status === 200 && httpBody.includes('"agentId":"a1"') && !httpBody.includes('Users'));
   check('unsigned HTTP query cannot use bearer alone', (await request('/api/v1/diagnostics/query', {}, randomUUID(), true)).status === 401);
   check('GET is not allowed on the diagnostics route', (await fetch(`http://127.0.0.1:${address.port}/api/v1/diagnostics/query`, { headers: { authorization: `Bearer ${'t'.repeat(32)}` } })).status === 405);
-  check('generic remote command allowlist stays unchanged', REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit,run:answer');
+  check('generic remote command allowlist stays unchanged', REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit,run:answer,runTask:reply');
   const stale = context(); devices.revoke('tablet');
   await refuses('revocation blocks an old signed principal', () => app.diagnostics(stale, {}), 'unknown_device');
   check('final positive control: the probe result itself was never mutated', probe.items[0]!.message.includes('C:\\Users'));

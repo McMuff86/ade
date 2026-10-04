@@ -100,7 +100,7 @@ void (async () => {
   check('signed HTTP command uses organizer body limits and updates once', saved.status === 200 && organizer.store.detail(note.id)?.document.text.length === 31_000);
   const voiceHttp = await request('/api/v1/organizer/dictation', preparation);
   check('signed HTTP dictation exposes the prepared note target', voiceHttp.status === 200 && !!(await voiceHttp.json() as { jobId?: string }).jobId);
-  check('generic remote command allowlist stays unchanged', REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit,run:answer');
+  check('generic remote command allowlist stays unchanged', REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit,run:answer,runTask:reply');
   const stale = context(); devices.revoke('tablet');
   await refuses('revocation blocks an old signed principal', () => app.organizer(stale, { operation: 'list' }, false), 'unknown_device');
   check('final desktop positive control retains all original and accepted content', organizer.store.detail(secretNote.id)?.document.text === secretNote.text && organizer.store.detail(note.id)?.document.text.length === 31_000);

@@ -303,6 +303,8 @@ export interface MobileRunActivity {
     process: 'running' | 'exited' | 'unavailable'; lastOutputAt?: number; outputBytes?: number;
     activity: Array<{ kind: string; text: string }>; notice: string | null;
     output?: import('./types').RunTaskOutput; result?: import('./types').RunReportResult | null;
+    /** Whether a reply can continue this finished single task (`POST /api/v1/runs/:id/reply`). */
+    reply?: { available: boolean };
     fileChanges?: { created: number; modified: number; deleted: number; reported: number; unknown: number; source: 'observed' | 'reported' | 'unknown' };
   }>;
 }
@@ -560,6 +562,8 @@ export interface SessionConsumption {
 export interface MobileRunDeleteResult { runId: string; deleted: true; replayed: boolean }
 
 export type MobileRunQuestions = import('./runQuestions').RunQuestionsView;
+/** Reply to the last finished task of a single-task run; the run id is in the route. */
+export interface MobileTaskReplyInput { taskId: string; prompt: string }
 export type MobileRunAnswerInput = Omit<import('./runQuestions').RunQuestionAnswerInput, 'runId' | 'commandId'>;
 
 /** Stable, path-free error codes of the host API. */

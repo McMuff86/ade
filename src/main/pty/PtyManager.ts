@@ -29,6 +29,7 @@ import {
   effectiveParticipantAgent,
   resolveLaunchCommand,
   resolveTaskLaunchCommand,
+  type TaskConversation,
 } from '../../shared/runtimes';
 import type {
   Agent,
@@ -121,6 +122,8 @@ export interface TaskLifecycleSink {
   } | undefined;
   handlesTaskNotification?: (taskId: string) => boolean;
   onTaskStarted: (taskId: string, session: SessionMeta) => void;
+  /** The CLI reported the conversation identity a later reply can resume. */
+  onTaskNativeSession?: (taskId: string, nativeSessionId: string) => void;
   onTaskLaunchFailed: (taskId: string, cancelled: boolean, error?: string) => void;
   onTaskFinished: (
     taskId: string,
@@ -131,6 +134,7 @@ export interface TaskLifecycleSink {
 }
 
 interface Session {
+  nativeSessionReported?: boolean;
   usageFinish?: NativeUsageLaunch['finish'];
   promptProtected?: boolean;
   cols: number;
@@ -570,7 +574,19 @@ export class PtyManager {
     const managedLaunch = task?.runTaskId
       ? this.taskLifecycle?.getTaskLaunch?.(task.runTaskId)
       : undefined;
-    const allowQuestions = !!task?.runTaskId && this.store.get().runTasks.find((item) => item.id === task.runTaskId)?.allowQuestions === true;
+    const taskRecord = task?.runTaskId ? this.store.get().runTasks.find((item) => item.id === task.runTaskId) : undefined;
+    const allowQuestions = taskRecord?.allowQuestions === true;
+    // A single task runs under a recorded CLI conversation; a reply resumes it,
+    // and only in the workspace the answered task actually ran in.
+    const conversation = taskRecord?.nativeSessionId && !managedLaunch
+      ? { id: taskRecord.nativeSessionId, resume: !!taskRecord.replyToTaskId } : undefined;
+    if (taskRecord?.replyToTaskId) {
+      const origin = this.store.get().runTasks.find((item) => item.id === taskRecord.replyToTaskId);
+      if (!conversation || !origin?.workspaceDir || origin.workspaceDir !== scope.workspaceDir
+        || (origin.workspaceBindingId ?? null) !== (scope.workspaceBindingId ?? null)) {
+        throw new Error(translate("ade: The workspace of this job has changed. Start a new job instead of replying."));
+      }
+    }
     // A raw CLI/login/shell never receives ADE behavior just because its tab
     // belongs to an agent. An explicitly saved behavior opts a profile into the
     // external snapshot transport, independent of the memory toggle.
@@ -603,7 +619,7 @@ export class PtyManager {
     const cwd = project ? scope.workspaceDir : await this.resolveCwd(scope);
     const backendPlatform = executionBackendPlatform(scope.executionBackend);
     const baseSpec = task
-      ? this.resolveTaskSpawn({ ...savedAgent!, ...agent }, task.task, managedLaunch, backendPlatform)
+      ? this.resolveTaskSpawn({ ...savedAgent!, ...agent }, task.task, managedLaunch, backendPlatform, conversation)
       : login
         ? this.resolveLoginSpawn(login.command, backendPlatform)
         : this.resolveInteractiveSpawn(agent, backendPlatform);
@@ -703,6 +719,7 @@ export class PtyManager {
       proc = allowQuestions ? new CodexAppServerProcess({ cwd, env, agent, prompt: managedLaunch?.prompt ?? questionTaskPrompt!,
         resultPath: managedLaunch?.env.ADE_TASK_RESULT_PATH, schemaPath: managedLaunch?.env.ADE_TASK_SCHEMA_PATH,
         question: (items, blocking, deliver) => this.questions!.register(task!.runTaskId!, items, blocking, deliver),
+        resumeThreadId: conversation?.resume ? conversation.id : undefined,
       }) : pty.spawn(command.file, command.args, {
       name: 'xterm-256color',
       cols: DEFAULT_COLS,
@@ -825,6 +842,10 @@ export class PtyManager {
         // The raw stream stays byte-exact in the ring buffer (telemetry parses
         // it at completion); activity is a derived, human-readable view.
         const rendered = session.activity.parser.push(data).map((line) => ({ ...line, sequence: ++session.activity!.sequence, at: Date.now() }));
+        const native = session.activity.parser instanceof CodexActivityParser ? session.activity.parser.nativeSessionId : undefined;
+        if (native && session.meta.runTaskId && !session.nativeSessionReported) {
+          session.nativeSessionReported = true; this.taskLifecycle?.onTaskNativeSession?.(session.meta.runTaskId, native);
+        }
         if (rendered.length === 0) return;
         session.activity.lines.push(...rendered);
         if (session.activity.lines.length > ACTIVITY_LINE_CAP) {
@@ -1199,11 +1220,12 @@ export class PtyManager {
       transport?: 'argument' | 'stdin';
     },
     platform: 'win32' | 'posix' = process.platform === 'win32' ? 'win32' : 'posix',
+    conversation?: TaskConversation,
   ): SpawnSpec {
     const isWin = platform === 'win32';
     const task = managed?.command
       ? { command: managed.command, transport: managed.transport ?? 'argument' as const }
-      : resolveTaskLaunchCommand(agent, isWin ? 'win32' : 'posix');
+      : resolveTaskLaunchCommand(agent, isWin ? 'win32' : 'posix', conversation);
     if (!task) {
       throw new Error(`ade: runtime "${agent.runtime}" has no non-interactive task transport`);
     }

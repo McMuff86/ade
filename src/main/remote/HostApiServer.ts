@@ -70,7 +70,7 @@ type Route =
   | { kind: 'terminalPrompt' | 'terminalImage' | 'dictationCommand' | 'dictationUpload' }
   | { kind: 'integrationQuery' | 'integrationCommand' }
   | { kind: 'assignmentQuery' | 'assignmentCommand' }
-  | { kind: 'runQuestions' | 'runAnswer'; runId: string }
+  | { kind: 'runQuestions' | 'runAnswer' | 'runReply'; runId: string }
   | { kind: 'runActivity'; runId: string; taskId?: string }
   | { kind: 'runFiles' | 'runFile'; runId: string; taskId?: string; fileId?: string }
   | { kind: 'projectQuery' | 'projectCommand' | 'projectMembership' | 'projectRemoveMissing' }
@@ -82,7 +82,7 @@ type Route =
   | { kind: 'health' | 'host' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'catalog' | 'runs' | 'events' | 'tasks' | 'pair' | 'session' | 'logout' }
   | { kind: 'startRun' | 'cancelRun' | 'deleteRun'; runId: string };
 
-type CommandKind = 'notificationCommand' | 'diagnosticsQuery' | 'usageOverview' | 'usageProjects' | 'organizerQuery' | 'organizerCommand' | 'organizerDictation' | 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'projectRemoveMissing' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
+type CommandKind = 'notificationCommand' | 'diagnosticsQuery' | 'usageOverview' | 'usageProjects' | 'organizerQuery' | 'organizerCommand' | 'organizerDictation' | 'terminalImage' | 'conversationActionsQuery' | 'conversationActionsCommand' | 'conversationDictation' | 'conversationQuery' | 'conversationCommand' | 'supervisionQuery' | 'supervisionCommand' | 'terminalSpeech' | 'terminalPrompt' | 'dictationCommand' | 'dictationUpload' | 'speechQuery' | 'speechCommand' | 'projectMembership' | 'projectRemoveMissing' | 'deleteRun' | 'integrationQuery' | 'integrationCommand' | 'assignmentQuery' | 'assignmentCommand' | 'runAnswer' | 'runReply' | 'createRun' | 'startRun' | 'cancelRun' | 'submitTask' | 'restartHost' | 'administer' | 'queryGit' | 'queryWorkspace' | 'terminalQuery' | 'terminalCommand' | 'terminalInput' | 'saveWorkspaceFile' | 'queryProfile' | 'updateProfile' | 'queryBehavior' | 'updateBehavior' | 'projectQuery' | 'projectCommand';
 
 interface ParsedTarget {
   path: string;
@@ -180,6 +180,8 @@ function matchRoute(path: string): { route: Route; allow: string[] } | null {
     case '/api/v1/tasks': return { route: { kind: 'tasks' }, allow: ['POST'] };
     case '/api/v1/events': return { route: { kind: 'events' }, allow: ['GET'] };
     default: {
+      const reply = /^\/api\/v1\/runs\/([A-Za-z0-9_.:-]{1,128})\/reply$/.exec(path);
+      if (reply) return { route: { kind: 'runReply', runId: reply[1]! }, allow: ['POST'] };
       const question = /^\/api\/v1\/runs\/([A-Za-z0-9_.:-]{1,128})\/(questions|answers)$/.exec(path);
       if (question) return { route: { kind: question[2] === 'questions' ? 'runQuestions' : 'runAnswer', runId: question[1]! }, allow: [question[2] === 'questions' ? 'GET' : 'POST'] };
       const inspection = /^\/api\/v1\/runs\/([A-Za-z0-9_.:-]{1,128})(?:\/tasks\/([A-Za-z0-9_.:-]{1,128}))?\/(activity|files)(?:\/([a-f0-9]{64}))?$/.exec(path);
@@ -557,6 +559,7 @@ export class HostApiServer {
         case 'cancelRun':
         case 'deleteRun':
         case 'runAnswer':
+        case 'runReply':
           await this.handleCommand(
             request, response, requestId, bearer, target.path, matched.route.kind, matched.route.runId, browserRequest,
           );
@@ -657,6 +660,7 @@ export class HostApiServer {
         : kind === 'terminalImage' ? await this.application.remoteTerminalImage(context, payload)
         : kind === 'dictationCommand' || kind === 'dictationUpload' ? await this.application.remoteDictation(context, payload, kind === 'dictationUpload')
         : kind === 'runAnswer' ? await this.application.answerRunQuestion(context, runId!, payload)
+        : kind === 'runReply' ? await this.application.replyTask(context, runId!, payload)
         : kind === 'supervisionQuery' || kind === 'supervisionCommand' ? await this.application.supervision(context, payload, kind === 'supervisionCommand')
         : kind === 'conversationQuery' || kind === 'conversationCommand' ? await this.application.conversation(context, payload, kind === 'conversationCommand')
         : kind === 'conversationDictation' ? await this.application.conversationDictation(context, payload)

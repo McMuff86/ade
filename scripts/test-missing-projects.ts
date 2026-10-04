@@ -76,7 +76,7 @@ void (async () => {
   const input = { repositoryId: goneId };
   check('desktop removal channel is a desktop-only audited mutation; remote command channels are unchanged',
     CHANNEL_POLICY['project:removeMissing'].surface === 'desktop' && CHANNEL_POLICY['project:removeMissing'].audit
-    && REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit,run:answer');
+    && REMOTE_COMMAND_CHANNELS.join(',') === 'run:create,run:start,run:cancel,runTask:submit,run:answer,runTask:reply');
   await refuses('desktop payload rejects host paths', () => assertIpcPayload('project:removeMissing', { repositoryId: goneId, path: gone }));
   devices.setAdminScopes(device.id, ['workspace:read']);
   await refuses('removal requires the catalog grant', () => application.projectRemoveMissing(context(), input), 'scope_not_granted');

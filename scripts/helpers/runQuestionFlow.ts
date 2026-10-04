@@ -68,6 +68,23 @@ export async function runQuestionFlow(app: ElectronApplication, desktop: Page, p
         && !(await desktop.evaluate((id) => window.ade.invoke('run:report', { runId: id }), started.run.id)).tasks.some((task) => task.output?.text.includes('Grün')));
     }
     if (!completed.tasks.some((task) => task.output?.text.includes('Blau'))) console.error('Question fixture result:', JSON.stringify(completed.tasks.map((task) => ({ status: task.status, output: task.output }))));
+    // Reply to the finished task: the desktop report offers it, and the real launch path resumes the recorded Codex thread.
+    const replyForm = report.getByRole('form', { name: 'Antwort an den Agenten', exact: true });
+    await replyForm.waitFor();
+    await replyForm.getByLabel('Antwort an den Agenten', { exact: true }).fill('Bitte in Blau fortfahren.');
+    await replyForm.getByLabel('Antwort an den Agenten', { exact: true }).press('Tab');
+    check('desktop reply field leads to its send button by keyboard', await desktop.evaluate(() => document.activeElement?.textContent === 'Antwort senden'));
+    await desktop.keyboard.press('Enter');
+    let replied = await desktop.evaluate((id) => window.ade.invoke('run:report', { runId: id }), started.run.id);
+    for (let attempt = 0; attempt < 100 && (replied.tasks.length < 2 || replied.tasks.some((task) => task.status === 'running' || task.status === 'queued')); attempt++) {
+      await new Promise((done) => setTimeout(done, 100));
+      replied = await desktop.evaluate((id) => window.ade.invoke('run:report', { runId: id }), started.run.id);
+    }
+    const replyTask = replied.tasks.find((task) => task.replyToTaskId === completed.tasks[0]!.id);
+    if (!replyTask?.output?.text.includes('Fortgesetzt in thread-1')) console.error('Reply fixture result:', JSON.stringify(replied.tasks.map((task) => ({ status: task.status, error: task.error, output: task.output }))));
+    check('desktop reply runs as the next task of the same run and resumes the recorded Codex thread', replied.tasks.length === 2 && replyTask?.status === 'completed'
+      && !!replyTask.output?.text.includes('Fortgesetzt in thread-1'));
+    check('the conversation identity is not part of the renderer report', !JSON.stringify(replied).includes('thread-1"') && !JSON.stringify(replied).includes('nativeSessionId'));
     await desktop.keyboard.press('Escape'); await report.waitFor({ state: 'hidden' });
     check('closed answer report restores focus when question opener disappears', await desktop.getByRole('button', { name: 'Bericht', exact: true }).evaluate((node) => node === document.activeElement));
     await reconnectTablet(phone);

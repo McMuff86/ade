@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { expect } from 'playwright/test';
 import { chromium, type Browser, type Page } from 'playwright';
 import { createRemoteWorkspaceFixture } from './helpers/remoteWorkspaceFixture';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
@@ -149,6 +150,39 @@ void (async () => {
   check('unsent project draft survives a real browser reload', await page.getByLabel('Aufgabe', { exact: true }).inputValue() === 'Persistent project draft');
   check('draft content stays separate from appearance preferences', await page.evaluate(() => Object.keys(localStorage)
     .filter((key) => key.startsWith('ade-mobile-')).every((key) => !localStorage.getItem(key)?.includes('Persistent project draft'))));
+  // Reply to a finished single task. Only the CLI is doubled: the first run's agent becomes a
+  // Claude Code agent whose task ran under a recorded conversation.
+  await page.keyboard.press('Escape'); await page.setViewportSize({ width: 820, height: 1180 });
+  const conversation = '0b0f6c1e-2c1f-4d6e-9a53-6f0c8d1e2a3b';
+  const before = fixture.store.get(); const workOne = before.runs.find((run) => run.name === 'Work One')!;
+  const answered = before.runTasks.find((task) => task.runId === workOne.id)!;
+  fixture.store.save({ agents: before.agents.map((item) => ({ ...item, runtime: 'claude' as const, customCommand: undefined })),
+    runParticipants: before.runParticipants.map((item) => ({ ...item, runtime: 'claude' as const })),
+    runTasks: before.runTasks.map((task) => task.id === answered.id ? { ...task, nativeSessionId: conversation } : task) });
+  fixture.devices.setAdminScopes(fixture.devices.activeDevices()[0]!.id, ['catalog:write', 'repositories:write', 'workspace:read']); await connected();
+  await page.getByRole('tab', { name: 'Aufträge', exact: true }).click();
+  await page.getByLabel('Agentfilter', { exact: true }).selectOption('');
+  await page.getByRole('button', { name: /Work One/ }).click();
+  const result = page.getByRole('region', { name: 'Run-Aktivität und Ergebnis', exact: true });
+  await result.getByRole('button', { name: 'Ergebnis', exact: true }).click();
+  await result.getByText(/Prozess läuft|Laufstatus/).first().waitFor();
+  const replyForm = result.getByRole('form', { name: 'Antwort an den Agenten', exact: true });
+  check('a running task offers no reply field', await replyForm.count() === 0);
+  fixture.coordinator.onTaskFinished(answered.id, 'completed', 0, '');
+  await replyForm.waitFor();
+  check('reply send stays disabled until there is text', await replyForm.getByRole('button', { name: 'Antwort senden', exact: true }).isDisabled());
+  await replyForm.getByLabel('Antwort an den Agenten', { exact: true }).fill('Ja, bitte anlegen.');
+  await replyForm.getByLabel('Antwort an den Agenten', { exact: true }).press('Tab');
+  check('the reply field leads to its send button by keyboard', await page.evaluate(() => document.activeElement?.textContent === 'Antwort senden'));
+  const launchesBefore = fixture.sessions.length;
+  await page.keyboard.press('Enter');
+  await expect.poll(() => fixture.sessions.length).toBe(launchesBefore + 1);
+  const answer = fixture.store.get().runTasks.find((task) => task.replyToTaskId === answered.id);
+  check('the tablet reply launches one task that continues the answered conversation in the same run', !!answer && answer.runId === workOne.id
+    && answer.nativeSessionId === conversation && answer.prompt === 'Ja, bitte anlegen.' && fixture.store.get().runs.length === before.runs.length);
+  await expect(replyForm).toHaveCount(0);
+  check('while the reply works the field is gone and nothing else was launched', fixture.sessions.length === launchesBefore + 1);
+  check('reply view has no horizontal overflow on the tablet', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   check('remote workflow has no uncaught renderer errors', errors.length === 0);
 })().catch(async (error) => { failed++; console.error(error); await page?.screenshot({ path: join(evidence, 'workspace-browser-failure.png'), fullPage: true }).catch(() => undefined); })
   .finally(async () => {

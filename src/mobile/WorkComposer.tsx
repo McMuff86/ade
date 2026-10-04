@@ -64,7 +64,7 @@ export function WorkComposer({ draft, setDraft, catalog, host, onSend, onClose }
                 <span className="m-role">{index === 0 ? translate("1 · Coordination") : index === 1 ? '2 · Lead' : index > 1 ? `${index + 1} · Worker` : ''}</span></label>;
             })}</fieldset>}
           <label><input type="checkbox" checked={draft.allowQuestions === true} onChange={(event) => patch({ allowQuestions: event.target.checked })} />{translate("Allow questions (native Codex agents)")}</label>
-          {!draft.allowQuestions && <p className="m-field-note">{translate("Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you answer it with a new job.")}</p>}
+          {!draft.allowQuestions && <p className="m-field-note">{translate("Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you can answer it in the result.")}</p>}
           <label>{run ? translate("Run name") : translate("Name (optional)")}<input value={draft.name} onChange={(event) => patch({ name: event.target.value })} maxLength={80} required={run} /></label>
           <label>{run ? translate("Objective") : translate("Task")}<textarea aria-label={run ? translate("Objective") : translate("Task")} value={draft.prompt} onChange={(event) => patch({ prompt: event.target.value })}
             rows={5} maxLength={limit} required placeholder={translate("What should ADE do for you?")} /></label>

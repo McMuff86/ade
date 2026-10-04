@@ -844,6 +844,19 @@ wenn die ausgewählten Agenten native Codex-Agenten sind. Im Desktop-Graph öffn
 du den Run und beantwortest die Frage im Rückfragenbereich. Erst **Antwort senden**
 übermittelt deine Auswahl. ADE wartet auf Codex' Empfangsbestätigung.
 
+### Auf einen beendeten Auftrag antworten
+
+Endet ein einzelner Auftrag mit einer Rückfrage oder einem unfertigen Ergebnis,
+kannst du direkt antworten: am PC im Bericht des Runs, am Tablet unter
+**Ergebnis** im Feld **Antwort an den Agenten**. Deine Antwort läuft als weitere
+Aufgabe im selben Run, und der Agent arbeitet in derselben Unterhaltung und im
+selben Arbeitsordner weiter. Das Feld erscheint nur beim letzten Auftrag eines
+Einzelauftrags von Claude Code oder Codex, und nur solange Agent und
+Arbeitsordner unverändert sind. Aufträge von vor dieser Funktion und Agents mit
+eigenem Startbefehl lassen sich nicht fortsetzen; starte dafür einen neuen Auftrag.
+ADE entscheidet nicht selbst, ob die Antwort des Agenten eine Frage war: Der
+Auftrag bleibt „Abgeschlossen“, das Antwortfeld steht daneben.
+
 **Live zuschauen** am PC beziehungsweise **Aktivität** am Tablet zeigt, welche
 Werkzeuge und Dateien der Agent gemeldet hat. Im interaktiven Terminal kannst
 du zusätzlich direkt mit der gewählten CLI arbeiten. Bei einer blockierenden

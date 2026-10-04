@@ -2524,6 +2524,26 @@ main-HEAD/orchestrator-HEAD contracts. No host API allowlist is widened.
   exposes the top of the journal and `eventsSince()` pages strictly after a
   cursor. A `JournalChangeHub` notifies the desktop broadcast and the remote
   streams from one publication point.
+- `RunCoordinator.replySingleTask` answers a finished single task
+  (`runTask:reply`, `POST /api/v1/runs/:runId/reply`, 2026-10-04). The payload
+  names only run, task and reply text; it never names an agent, a workspace or
+  a conversation. `OrchestrationService.createReplyTask` queues the reply as
+  the next unmanaged task of the same run and participant (`replyToTaskId`),
+  with the idempotency record in the same save. Only the last task of a
+  manual run with exactly one participant can be answered, only after it
+  completed or failed, only while no task of the run is open, and only while
+  the agent still has the runtime the participant was created with and no
+  custom command. A single task carries a main-only `nativeSessionId`: ADE
+  assigns it for Claude Code (`claude -p --session-id <uuid>`), and for Codex
+  the stream parser records the `thread.started` id. The reply resumes that
+  conversation (`claude -p --resume <id>`, `codex exec <options> resume <id>`,
+  or `thread/resume` in the Codex app server when questions are allowed). The
+  id is validated against the identity alphabet before it enters a command
+  line. `PtyManager` refuses the reply launch when the resolved workspace
+  directory or binding differs from the one the answered task ran in; the
+  task then fails visibly. `nativeSessionId` is stripped from
+  `OrchestrationView`, submission results, `RunReport` and every wire DTO;
+  renderers see only `RunReportTask.reply.available` and `replyToTaskId`.
 - `RunCoordinator.submitSingleTask` is the first-class bounded single-task
   command (`runTask:submit`, `POST /api/v1/tasks`). It takes only an explicit
   `agentId`, `repositoryId`, `prompt` and optional `name`; the caller never
@@ -3153,7 +3173,8 @@ applies four checks/steps in order:
    line enough to expose a mutation. Instead the invariant is lifted per
    channel and only under the strongest requirement: a shared channel whose
    effect is not `read` must be listed in `REMOTE_COMMAND_CHANNELS`
-   (`run:create`, `run:start`, `run:cancel`, `runTask:submit`), demand `scope: 'runs:write'`,
+   (`run:create`, `run:start`, `run:cancel`, `runTask:submit`, `run:answer`,
+   `runTask:reply`), demand `scope: 'runs:write'`,
    `idempotency: 'required'`, `proof: 'device-signature'` and `audit: true`;
    shared `read` channels demand `scope: 'read'` without idempotency; `host`
    and `shell` effects can never be shared; desktop channels carry no remote

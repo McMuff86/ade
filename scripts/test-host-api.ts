@@ -806,6 +806,7 @@ function createFixture(devices: RemoteDevice[], options: { failLaunch?: boolean;
       startRun: (runId, commandId) => coordinator.start(runId, commandId),
       cancelRun: (runId, commandId) => coordinator.cancel(runId, undefined, commandId),
       submitTask: (input) => coordinator.submitSingleTask(input),
+      replyTask: (input) => coordinator.replySingleTask(input),
     },
     changes,
     commandsEnabled: () => devices.length > 0,

@@ -1629,7 +1629,7 @@ export const messagesEn = {
   " · Unchecked": " · Unchecked",
   "Agents · Order determines the roles": "Agents · Order determines the roles",
   "Allow questions (native Codex agents)": "Allow questions (native Codex agents)",
-  "Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you answer it with a new job.": "Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you answer it with a new job.",
+  "Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you can answer it in the result.": "Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you can answer it in the result.",
   "Run name": "Run name",
   "Name (optional)": "Name (optional)",
   "Objective": "Objective",
@@ -4035,5 +4035,10 @@ export const messagesEn = {
   "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import.": "{{value1}}: custom command and dashboard settings are host-specific and were not exported; set them again in the agent settings after the import.",
   "ade: Profile instructions require a native Windows or Linux start.": "ade: Profile instructions require a native Windows or Linux start.",
   "ade: Profile instructions exceed the safe Linux argument limit. Shorten the profile.": "ade: Profile instructions exceed the safe Linux argument limit. Shorten the profile.",
-  "ade: Combined profile instructions exceed the safe snapshot limit.": "ade: Combined profile instructions exceed the safe snapshot limit."
+  "ade: Combined profile instructions exceed the safe snapshot limit.": "ade: Combined profile instructions exceed the safe snapshot limit.",
+  "Reply to the agent": "Reply to the agent",
+  "Send reply": "Send reply",
+  "Sending reply…": "Sending reply…",
+  "The agent continues in the same conversation and workspace.": "The agent continues in the same conversation and workspace.",
+  "ade: The workspace of this job has changed. Start a new job instead of replying.": "ade: The workspace of this job has changed. Start a new job instead of replying.",
 } as const;

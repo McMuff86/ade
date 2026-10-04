@@ -88,6 +88,7 @@ const SUITES: Suite[] = [
   { id: 'orchestration', script: 'test-orchestration.ts', floors: { win32: 82 } },
   { id: 'orchestration-beta', script: 'test-orchestration-beta.ts', floors: { win32: 151 } },
   { id: 'run-questions', script: 'test-run-questions.ts', floors: { win32: 26 } },
+  { id: 'task-reply', script: 'test-task-reply.ts', floors: { linux: 37 } },
   { id: 'codex-conversations', script: 'test-codex-conversations.ts', floors: { win32: 25 } },
   { id: 'coordinator-codex-policy', script: 'test-coordinator-codex-policy.ts', floors: { win32: 51, linux: 58 } },
   { id: 'codex-dynamic-tools', script: 'test-codex-dynamic-tools.ts', floors: { win32: 18 } },

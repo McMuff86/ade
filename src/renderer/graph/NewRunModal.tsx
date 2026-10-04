@@ -374,7 +374,7 @@ export function NewRunModal(props: {
 
           <label><input type="checkbox" checked={allowQuestions} onChange={(event) => setAllowQuestions(event.target.checked)} />{translate("Allow queries during the run (native Codex agents)")}</label>
           {allowQuestions && <p>{translate("Codex can ask questions in the graph and on the tablet. Blocking queries pause the time limit of the respective task. All selected runtimes must be native Codex agents.")}</p>}
-          {!allowQuestions && <p>{translate("Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you answer it with a new job.")}</p>}
+          {!allowQuestions && <p>{translate("Without this option the agent cannot ask you anything during the job. A question in its reply ends the job; you can answer it in the result.")}</p>}
           <div className="grun-budget-title">
             <span>{translate("Run budgets")}</span>
             <small>{translate("Empty token/cost/time fields = no limit; token/cost limits require adapter telemetry.")}</small>

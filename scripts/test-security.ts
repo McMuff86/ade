@@ -243,6 +243,7 @@ const valid: Record<InvokeChannel, unknown> = {
   'runApproval:resolve': { approvalId: 'approval', decision: 'approve', commandId: 'cmd-approve' },
   'runTask:create': { runId: 'run', participantId: 'participant', prompt: 'Do it' },
   'runTask:submit': { agentId: 'agent', repositoryId: 'repository', prompt: 'Do it', commandId: 'cmd-submit' },
+  'runTask:reply': { runId: 'run', taskId: 'task', prompt: 'Yes, do it', commandId: 'cmd-reply' },
   'runTask:fail': { taskId: 'task', error: 'failed' },
   'runArtifact:create': { runId: 'run', kind: 'result', content: 'done' },
   'git:status': { agentId: 'agent', sessionId: 'session' },
@@ -362,6 +363,14 @@ check('single-task submission accepts only agent, repository, prompt, name and c
   && rejects('runTask:submit', {
     agentId: 'agent', repositoryId: 'repository', prompt: 'Do it', commandId: 'x'.repeat(129),
   }));
+check('a task reply names only run, task, prompt and commandId — never an agent or a workspace',
+  !rejects('runTask:reply', { runId: 'run', taskId: 'task', prompt: 'Yes, do it' })
+  && rejects('runTask:reply', { runId: 'run', prompt: 'Yes' })
+  && rejects('runTask:reply', { runId: 'run', taskId: 'task', prompt: '' })
+  && rejects('runTask:reply', { runId: 'run', taskId: 'task', prompt: 'x'.repeat(8_001) })
+  && rejects('runTask:reply', { runId: 'run', taskId: 'task', prompt: 'Yes', agentId: 'agent' })
+  && rejects('runTask:reply', { runId: 'run', taskId: 'task', prompt: 'Yes', workspaceDir: '/tmp/x' })
+  && rejects('runTask:reply', { runId: 'run', taskId: 'task', prompt: 'Yes', nativeSessionId: 'abc' }));
 check('unknown approval decisions are rejected', rejects('runApproval:resolve', {
   approvalId: 'approval', decision: 'maybe',
 }));
@@ -571,8 +580,8 @@ check('host-API shared channels are read-only unless allowlisted as remote comma
     .every((channel) => CHANNEL_POLICY[channel].effect === 'read'
       && CHANNEL_POLICY[channel].remote?.scope === 'read'
       && CHANNEL_POLICY[channel].remote?.proof === 'bearer'));
-check('the remote command allowlist is exactly run create/start/cancel/answer plus single-task submission',
-  [...REMOTE_COMMAND_CHANNELS].sort().join(',') === 'run:answer,run:cancel,run:create,run:start,runTask:submit'
+check('the remote command allowlist is exactly run create/start/cancel/answer plus single-task submission and reply',
+  [...REMOTE_COMMAND_CHANNELS].sort().join(',') === 'run:answer,run:cancel,run:create,run:start,runTask:reply,runTask:submit'
     && REMOTE_COMMAND_CHANNELS.every((channel) => sharedChannels.includes(channel)));
 check('single-task submission is a shared launch that never exposes the desktop task-create or PTY channels',
   CHANNEL_POLICY['runTask:submit'].effect === 'launch'
@@ -605,7 +614,7 @@ check('remoteChannels() lists exactly the shared surface',
 check('process-launching channels are classified as launch and audited',
   ([
     'pty:create', 'pty:kill', 'harness:login', 'run:start', 'run:cancel', 'run:publish', 'runApproval:resolve',
-    'runTask:submit',
+    'runTask:submit', 'runTask:reply',
   ] as const)
     .every((channel) => CHANNEL_POLICY[channel].effect === 'launch' && CHANNEL_POLICY[channel].audit));
 check('high-frequency terminal input is launch-classified but not audited per call',

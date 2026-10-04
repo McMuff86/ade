@@ -21,6 +21,7 @@ Stand: 2026-10-04. Beginne je nach Anliegen hier:
 | Goal 34.6 (unabhängiger Host) in neuem Kontext fortsetzen | [Kontexthandoff 3. Oktober](CONTEXT_HANDOFF_2026-10-03.md) |
 | ADE-Agent-Entwicklung nach der Pause wieder aufnehmen | [Kontexthandoff 17. September](archived/CONTEXT_HANDOFF_2026-09-17.md), [Goals](MAIN_AGENT_GOALS.md) |
 | Diesen Entwicklungsstand zu Hause laden | [Update und Erhalt des lokalen Profils](HOME_UPDATE.md) |
+| Auf einen beendeten Auftrag antworten (Claude Code, Codex) | [Entscheide, Umfang und Nachweise](TASK_REPLY_PLAN.md) |
 | Geplante Tracks und Abnahmekriterien | [ROADMAP](ROADMAP.md) |
 | Welche Dokumente sind noch aktuell? | [Dokumentationsaudit](DOCUMENTATION_AUDIT.md) |
 

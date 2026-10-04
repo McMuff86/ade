@@ -10,6 +10,8 @@ import { workspaceError } from './AgentWorkspace';
 import { finalStates } from './ui';
 import { RunFilesPanel } from '../renderer/graph/RunFilesPanel';
 import { useRunFilesPort } from './useRunFilesPort';
+import { TaskReplyForm } from '../renderer/graph/TaskReplyForm';
+import type { MobileCommandResult, MobileTaskReplyInput } from '../shared/remote';
 
 export function useRunActivity(host: MobileHost, runId?: string, taskId?: string) {
   const [data, setData] = useState<MobileRunActivity>(); const [error, setError] = useState(''); const [retry, setRetry] = useState(0);
@@ -71,6 +73,12 @@ export function RunActivityPanel({ host, run, participantId }: { host: MobileHos
         {task.output.source === 'recovered-cli' && <p>{translate("Restored from the associated earlier CLI session.")}</p>}</>}
       {!task.result && !task.output && <p>{task.status === 'running' ? translate("No final answer yet. Under Activity, keep track of the current status.") : translate("No structured reply was saved for this earlier session. Existing files are available under Files.")}</p>}
       {task.status === 'completed' && !task.result && <p>{translate("Exit 0 confirms the end of the process. Whether the task is completed is in the answer and the files.")}</p>}
+      {task.reply?.available && <TaskReplyForm idPrefix={`mobile-task-${task.id}`} disabled={host.status !== 'online'} errorText={workspaceError}
+        send={async (prompt, key) => {
+          const body: MobileTaskReplyInput = { taskId: task.id, prompt };
+          const result = await host.request<MobileCommandResult>(`/api/v1/runs/${run.id}/reply`, 'POST', body, key);
+          host.acceptRun(result.run); setChoice(''); setTab('activity'); refresh();
+        }} />}
     </>}
     {tab === 'files' && <RunFilesPanel runId={run.id} taskId={taskId} port={filePort} online={host.status === 'online'} identity={host.identityVersion} errorText={workspaceError} />}
   </section>;

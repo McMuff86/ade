@@ -50,7 +50,8 @@ export function createMobileFixture(root: string) {
   const application = new AdeApplicationService(store, orchestration, { status: () => ({ active: 0, queued: 0, maxActive: 4 }) }, {
     diagnostics: async (agentId) => { diagnostics.calls.push(agentId); return diagnostics.result; },
     commands: { createRun: (input) => orchestration.createRun(input), startRun: (id, key) => coordinator.start(id, key),
-      cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input) },
+      cancelRun: (id, key) => coordinator.cancel(id, undefined, key), submitTask: (input) => coordinator.submitSingleTask(input),
+      replyTask: (input) => coordinator.replySingleTask(input) },
     changes, commandsEnabled: () => devices.activeDevices().length > 0, audit: (entry) => devices.audit(entry),
     resourceAccess: (id) => devices.resourceAccess(id),
   });

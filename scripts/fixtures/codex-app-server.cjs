@@ -1,6 +1,7 @@
 // Deterministic protocol peer. No model, shell commands or network access.
 const readline = require('node:readline');
 const send = (value) => process.stdout.write(JSON.stringify(value) + '\n');
+let resumed = false;
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const message = JSON.parse(line);
   const ok = (result) => send({ id: message.id, result });
@@ -10,6 +11,17 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   } else if (message.method === 'thread/start') {
     if (!message.params.config['features.default_mode_request_user_input']) throw new Error('question feature missing');
     ok({ thread: { id: 'thread-1' } });
+  } else if (message.method === 'thread/read') {
+    ok({ thread: { id: message.params.threadId, cwd: process.cwd() } });
+  } else if (message.method === 'thread/resume') {
+    // A reply continues the recorded thread; it must name exactly the thread of the first run.
+    if (message.params.threadId !== 'thread-1') throw new Error('unexpected thread to resume');
+    resumed = true; ok({ thread: { id: 'thread-1' } });
+  } else if (message.method === 'turn/start' && resumed) {
+    ok({ turn: { id: 'turn-2' } });
+    send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-2' } } });
+    send({ method: 'item/completed', params: { threadId: 'thread-1', item: { id: 'response-2', type: 'agentMessage', text: 'Fortgesetzt in thread-1: ' + JSON.stringify(message.params.input) } } });
+    send({ method: 'turn/completed', params: { threadId: 'thread-1', turn: { id: 'turn-2', status: 'completed' } } });
   } else if (message.method === 'turn/start') {
     ok({ turn: { id: 'turn-1' } });
     send({ method: 'turn/started', params: { threadId: 'thread-1', turn: { id: 'turn-1' } } });

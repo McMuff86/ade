@@ -425,6 +425,7 @@ export async function composeHost(store: ConfigStore, ports: HostPorts) {
         startRun: (runId, commandId) => runCoordinator!.start(runId, commandId),
         cancelRun: (runId, commandId) => runCoordinator!.cancel(runId, undefined, commandId),
         submitTask: (input) => runCoordinator!.submitSingleTask(input),
+        replyTask: (input) => runCoordinator!.replySingleTask(input),
       },
       changes: journalChanges,
       commandsEnabled: () => (hostApiConfig.enabled || mobileAccess?.commandsEnabled() === true) && remoteDevices.activeDevices().length > 0,
@@ -1010,6 +1011,7 @@ export async function composeHost(store: ConfigStore, ports: HostPorts) {
   // One bounded task for an explicit agent/repository pair: run, participant
   // and task commit atomically, then the task session launches main-owned.
   handle(IPC.RunTaskSubmit, (input) => runCoordinator!.submitSingleTask(input));
+  handle(IPC.RunTaskReply, (input) => runCoordinator!.replySingleTask(input));
   handle(IPC.RunStart, ({ runId, commandId }) => runCoordinator!.start(runId, commandId));
   handle(IPC.RunCancel, ({ runId, commandId }) =>
     runCoordinator!.cancel(runId, undefined, commandId),

@@ -1182,6 +1182,15 @@ export function assertIpcPayload<K extends keyof IpcInvokeMap>(
       stringValue(channel, request.prompt, 'prompt', { max: 8_000 });
       return;
     }
+    case IPC.RunTaskReply: {
+      const request = record(channel, payload);
+      exactKeys(channel, request, ['runId', 'taskId', 'prompt', 'commandId']);
+      id(channel, request.runId, 'runId');
+      id(channel, request.taskId, 'taskId');
+      stringValue(channel, request.prompt, 'prompt', { max: 8_000 });
+      optionalString(channel, request.commandId, 'commandId', { max: 200 });
+      return;
+    }
     case IPC.RunTaskSubmit: {
       const request = record(channel, payload);
       exactKeys(channel, request, ['agentId', 'repositoryId', 'prompt', 'name', 'commandId', 'allowQuestions']);

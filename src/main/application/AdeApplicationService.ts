@@ -41,6 +41,7 @@ import type {
   RunMessage,
   RunSummary,
   RunTaskSubmission,
+  RunTaskReplyInput,
   RunTaskSubmitInput,
   TaskQueueStatus,
 } from '../../shared/types';
@@ -131,6 +132,7 @@ export interface ApplicationCommandPort {
   startRun(runId: string, commandId: string): Promise<Run>;
   cancelRun(runId: string, commandId: string): Promise<void>;
   submitTask(input: RunTaskSubmitInput): Promise<RunTaskSubmission>;
+  replyTask(input: RunTaskReplyInput): Promise<RunTaskSubmission>;
 }
 
 /** Fires after every journal change; the SSE adapter flushes deltas on it. */
@@ -1423,6 +1425,22 @@ export class AdeApplicationService {
         questionId: requireId(request.questionId, 'questionId'), answers: request.answers, commandId };
       assertIpcPayload(IPC.RunAnswer, input);
       await this.options.questions.answer(input); return { runId };
+    });
+  }
+
+  /**
+   * Answer the last finished task of a single-task run. The run id comes from
+   * the route and is resource-checked like every run command; the body names
+   * only the answered task and the reply text.
+   */
+  replyTask(context: RemoteCommandContext, runId: string, payload: unknown): Promise<MobileCommandResult> {
+    return this.command(IPC.RunTaskReply, context, { runId, reply: payload }, runId, async (commandId, commands) => {
+      const request = requireRecord(payload, 'request'); requireKeys(request, ['taskId', 'prompt'], 'request');
+      const input: RunTaskReplyInput = { runId, taskId: requireId(request.taskId, 'taskId'),
+        prompt: requireText(request.prompt, 'prompt', MAX_REMOTE_PROMPT_CHARS), commandId };
+      assertIpcPayload(IPC.RunTaskReply, input);
+      const submission = await commands.replyTask(input);
+      return { runId: submission.run.id, taskId: submission.task.id };
     });
   }
 

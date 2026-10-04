@@ -1,3 +1,4 @@
+import { TaskReplyForm } from './TaskReplyForm';
 import { localizedState } from '../../shared/i18n/states';
 import { localizeAppMessage } from '../../shared/i18n/appMessages';
 import { intlLocale } from '../../shared/i18n';
@@ -289,6 +290,8 @@ export function RunReportPanel(props: RunReportPanelProps): JSX.Element {
                     : <p className="greport-note">{translate("No validated result is stored.")}</p>}
                   {task.output && <section aria-label={translate("Answer of the agent")}><h4>{translate("Answer of the agent")}</h4><pre className="greport-task-error">{task.output.text}</pre>
                     {task.output.limited && <p>{translate("Answer limited to 64 KiB.")}</p>}{task.output.source === 'recovered-cli' && <p>{translate("Restored from the previous CLI session.")}</p>}</section>}
+                  {task.reply?.available && <TaskReplyForm idPrefix={`greport-task-${task.id}`} errorText={(reason) => reason instanceof Error ? reason.message : String(reason)}
+                    send={async (prompt, key) => { await window.ade.invoke('runTask:reply', { runId, taskId: task.id, prompt, commandId: key }); }} />}
                 </article>
               ))}
             </section>

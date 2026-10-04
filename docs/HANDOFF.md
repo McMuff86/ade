@@ -47,7 +47,14 @@ persönliche Aktivierung siehe unten.
   `16cebfbef53cbc5b1d6f`; Backup
   `~/ADE-Backups/Activate-TabletFixes-2026-10-04T20-09-18-994Z`; HTTPS `:8443`
   liefert 200. Offen: Abnahme der Korrekturen und der Codex-Rückfrage am Tablet.
-- **Nächster Schritt:** H2c ([HOST_SECRETS_H2](HOST_SECRETS_H2.md)).
+- **Antwort auf beendete Aufträge (4. Oktober 2026, nachts):** umgesetzt für
+  Claude Code und Codex ([Entscheide und Nachweise](TASK_REPLY_PLAN.md)).
+  Suiten 115/115 mit 4.776 Checks; `remote-workspace-browser` 30/0,
+  `mobile-electron` 46/0, `linux-agent-tablet` 61/0. Vollständiges
+  `pnpm verify`: 30 bestanden, **1 Fehler**, 16 nicht gemessen. Der Fehler ist
+  der H2b-Treiber `linux-secret-service`, der sporadisch scheitert (4 von 14
+  Einzelläufen; siehe ROADMAP). Echte Probe der Fortsetzung mit Modell steht aus.
+- **Nächster Schritt:** Schlüsselbund-Treiber stabilisieren, dann H2c ([HOST_SECRETS_H2](HOST_SECRETS_H2.md)).
 
 ## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)
 

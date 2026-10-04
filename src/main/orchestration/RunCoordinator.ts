@@ -10,6 +10,7 @@ import type {
   RunParticipant,
   RunTask,
   RunTaskSubmission,
+  RunTaskReplyInput,
   RunTaskSubmitInput,
   SessionMeta,
   StructuredTaskResult,
@@ -476,6 +477,28 @@ export class RunCoordinator {
   }
 
   /**
+   * Answer the last finished task of a single-task run: the reply becomes the
+   * run's next task and resumes the recorded CLI conversation. The launch
+   * refuses when the workspace is no longer the one the answered task ran in.
+   */
+  async replySingleTask(input: RunTaskReplyInput, authorize: () => void = () => undefined): Promise<RunTaskSubmission> {
+    authorize();
+    if (this.orchestration.recallCommand<{ runId: string; taskId: string }>('runTask:reply', input.commandId)) {
+      return this.orchestration.createReplyTask(input);
+    }
+    if (!this.taskLauncher) throw new Error('ade: orchestration task launcher is not connected');
+    const submission = this.orchestration.createReplyTask(input);
+    const { run, task } = submission;
+    const participant = requireParticipant(this.orchestration.snapshot().participants, task.participantId, run.id);
+    void this.taskLauncher(participant.agentId, task.prompt, randomUUID(), task.id, run.repositoryId, undefined, authorize)
+      .catch((error) => {
+        const current = this.orchestration.snapshot().tasks.find((candidate) => candidate.id === task.id);
+        if (current?.status === 'queued') this.onTaskLaunchFailed(task.id, false, errorMessage(error));
+      });
+    return submission;
+  }
+
+  /**
    * Cancel a run's remaining work. Managed runs additionally close their phase
    * machine and release leases; a manual run (including a single-task
    * submission) derives its status from its tasks, so cancelling the queued
@@ -577,6 +600,10 @@ export class RunCoordinator {
       if (runTaskIds.length > 0) await this.taskCanceller?.(runTaskIds);
       this.orchestration.deleteRun(runId);
     });
+  }
+
+  onTaskNativeSession(taskId: string, nativeSessionId: string): void {
+    this.orchestration.recordTaskNativeSession(taskId, nativeSessionId);
   }
 
   onTaskStarted(taskId: string, session: SessionMeta): void {

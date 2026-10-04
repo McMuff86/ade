@@ -476,6 +476,14 @@ export interface RunTask {
   fileTracking?: import('./runFiles').RunFileTracking;
   /** Captured assistant response; exposed only in the result/report detail. */
   output?: RunTaskOutput;
+  /**
+   * Main-only identity of the CLI conversation behind a single task (Claude
+   * session id assigned by ADE, Codex thread id reported by the CLI). A reply
+   * resumes exactly this conversation; it never reaches a renderer or the wire.
+   */
+  nativeSessionId?: string;
+  /** The finished task of the same run this task answers. */
+  replyToTaskId?: string;
   id: string;
   runId: string;
   participantId: string;
@@ -929,6 +937,10 @@ export interface RunReportResult {
 }
 
 export interface RunReportTask {
+  /** Whether a reply can continue this task's CLI conversation right now. */
+  reply?: { available: boolean };
+  /** Set on a task that answers an earlier task of the same run. */
+  replyToTaskId?: string;
   questions?: import('./runQuestions').RunQuestion[];
   files?: import('./runFiles').RunFileChanges;
   output?: RunTaskOutput;
@@ -1540,6 +1552,19 @@ export interface RunTaskSubmitInput {
   /** Optional run name; defaults to the task title derived from the prompt. */
   name?: string;
   /** Optional idempotency key; a replay returns the originally created run and task. */
+  commandId?: string;
+}
+
+/**
+ * Reply to the last finished task of a single-task run. ADE queues another
+ * task for the same participant that resumes the recorded CLI conversation in
+ * the unchanged workspace; the payload never names an agent or a workspace.
+ */
+export interface RunTaskReplyInput {
+  runId: string;
+  taskId: string;
+  prompt: string;
+  /** Optional idempotency key; a replay returns the originally created task. */
   commandId?: string;
 }
 

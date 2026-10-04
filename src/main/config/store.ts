@@ -390,6 +390,7 @@ export function validateCompleteConfig(config: AdeConfig): void {
     'id', 'runId', 'participantId', 'prompt', 'title', 'phase', 'managed', 'dependsOn', 'attempt', 'status',
     'sessionId', 'repositoryId', 'workspaceBindingId', 'workspaceDir', 'expectedHeadSha', 'preparedBaseSha',
     'createdAt', 'updatedAt', 'startedAt', 'endedAt', 'exitCode', 'error', 'output', 'fileTracking', 'allowQuestions', 'questions',
+    'nativeSessionId', 'replyToTaskId',
   ], ['id', 'runId', 'participantId', 'prompt', 'title', 'phase', 'managed', 'dependsOn', 'attempt', 'status', 'createdAt', 'updatedAt']);
   schema(config.runEvents, 'config.runEvents',
     ['id', 'runId', 'type', 'createdAt', 'taskId', 'participantId', 'data', 'seq'],
