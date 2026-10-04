@@ -49,7 +49,8 @@ void (async () => {
   await refuses('a reply to a task of another run is refused', () => app.replyTask(context(), randomUUID(), body), /not found|nicht/i);
   check('refused replies launch nothing and create no task', f.sessions.length === launchedBefore && store.get().runTasks.length === 1);
   const ctx = context(); const sent = await app.replyTask(ctx, first.run.id, body); const replay = await app.replyTask(ctx, first.run.id, body);
-  await new Promise((done) => setTimeout(done, 100)); // the fixture launcher resolves its scope asynchronously
+  // The fixture launcher resolves its scope asynchronously; wait for the launch itself, not for a fixed time.
+  for (let attempt = 0; attempt < 200 && f.sessions.length < launchedBefore + 1; attempt++) await new Promise((done) => setTimeout(done, 25));
   const reply = record(sent.taskId!);
   check('the reply becomes the next task of the same run and participant', sent.run.id === first.run.id && reply.runId === first.run.id
     && reply.participantId === first.task.participantId && reply.replyToTaskId === first.task.id && !reply.managed);
