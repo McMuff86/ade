@@ -59,6 +59,16 @@ persönliche Aktivierung siehe unten.
   **PID 664154**, Quelle `63d01a3129c50cd29022`; Backup
   `~/ADE-Backups/Activate-TaskReply-2026-10-04T20-58-16-258Z`; HTTPS `:8443`
   liefert 200.
+- **Aktiviert (4. Oktober 2026, 23:23 CEST):** Commit `5c0ae11` (ziehbare
+  Details-Spalte am Tablet) über `pnpm activate -- -Label InspectorResize`: Gate
+  14/0/1 nicht gemessen, neuer Host **PID 882198**, Quelle
+  `d01bc7121607b0c98e3e`; Backup
+  `~/ADE-Backups/Activate-InspectorResize-2026-10-04T21-23-12-255Z`.
+- **Echte Probe der Antwort-Funktion (23:21 CEST, Tablet, Benutzer):** Codex
+  ohne Rückfrage-Option fragte nach, die Antwort lief als zweite Aufgabe im
+  selben Run über `codex exec … resume <Thread>` und legte `test3.txt` im
+  Codex-Arbeitsordner an. Claude Code (`--resume`) und Codex mit erlaubten
+  Rückfragen sind am Gerät noch nicht bestätigt.
 - **Nächster Schritt:** Schlüsselbund-Treiber stabilisieren, dann H2c ([HOST_SECRETS_H2](HOST_SECRETS_H2.md)).
 
 ## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)

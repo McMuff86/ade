@@ -42,8 +42,10 @@ Bedienung: [User-Guide](USER_GUIDE.md), „Auf einen beendeten Auftrag antworten
 - Aufträge von vor dieser Funktion und Agents mit eigenem Startbefehl sind nicht fortsetzbar.
 - Die Startbefehle `claude -p --session-id/--resume` und `codex exec … resume`
   sind als Befehlszeilen geprüft und gegen die installierten CLIs mit einer
-  unbekannten ID auf ihre Argumentform getestet. Ein echter Lauf mit Modell
-  steht aus: **Abnahme durch den Benutzer am Tablet.**
+  unbekannten ID auf ihre Argumentform getestet. Echte Probe am Tablet am
+  4. Oktober, 23:21 CEST: Codex ohne Rückfrage-Option wurde über
+  `codex exec … resume` fortgesetzt und legte die erfragte Datei an. Für
+  Claude Code und für Codex mit erlaubten Rückfragen steht die echte Probe aus.
 - Die Übersicht bietet weiterhin „Arbeit prüfen“; eine eigene Aktion
   „Antworten“ direkt in der Übersicht ist nicht gebaut.
 - Windows: Vertragssuiten laufen in CI; die Oberfläche ist nur unter Linux gemessen.
