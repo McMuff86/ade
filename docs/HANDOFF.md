@@ -69,6 +69,14 @@ persönliche Aktivierung siehe unten.
   selben Run über `codex exec … resume <Thread>` und legte `test3.txt` im
   Codex-Arbeitsordner an. Claude Code (`--resume`) und Codex mit erlaubten
   Rückfragen sind am Gerät noch nicht bestätigt.
+- **Aktiviert (4. Oktober 2026, 23:42 CEST):** Commit `a4e5625` (Tablet-Graph
+  „Alle Aufträge“ mit verschiebbaren Boxen, Auftragsnamen aus der am Gerät
+  getippten ersten Zeile) über `pnpm activate -- -Label JobOverview`: Gate
+  14/0/1 nicht gemessen, neuer Host **PID 1154563**, Quelle
+  `35b1e572708956f01d75`; Backup
+  `~/ADE-Backups/Activate-JobOverview-2026-10-04T21-41-58-042Z`. Vollständiges
+  `pnpm verify` davor: einmal 31/0/16, einmal 30/1/16 (wieder
+  `linux-secret-service`).
 - **Nächster Schritt:** Schlüsselbund-Treiber stabilisieren, dann H2c ([HOST_SECRETS_H2](HOST_SECRETS_H2.md)).
 
 ## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)
