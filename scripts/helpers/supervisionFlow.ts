@@ -97,6 +97,14 @@ export async function supervisionFlow(page: Page, sessions: Array<{ id: string; 
   await page.keyboard.press('Escape');
   if (!tablet) return;
   await tablet.keyboard.press('Escape'); await tablet.setViewportSize({ width: 1280, height: 800 });
+  // The supervision plan sits above the run graph in normal flow; the graph must not cover it.
+  await tablet.getByRole('tab', { name: 'Graph', exact: true }).click();
+  await tablet.locator('.supervision-graph [data-supervised-project]').first().waitFor();
+  check('tablet graph view keeps the supervision plan and the run graph apart', await tablet.evaluate(() => {
+    const plan = document.querySelector('.supervision-graph')!.getBoundingClientRect();
+    const graph = document.querySelector('.m-view-graph > .m-graph')!.getBoundingClientRect();
+    return plan.height > 0 && graph.height > 0 && (plan.bottom <= graph.top + 1 || graph.bottom <= plan.top + 1);
+  }));
   const response = tablet.waitForResponse(res => res.url().endsWith('/api/v1/supervision/query') && res.ok());
   await tablet.locator('#mobile-supervision').click();
   await tablet.getByRole('dialog', { name: 'Gespräche', exact: true }).locator('#conversation-mode-project').click();

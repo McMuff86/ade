@@ -85,7 +85,9 @@ h1, h2, h3 { line-height: 1.35; }
 .m-draft-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 .m-workspace { flex: 1; min-height: 0; min-width: 0; display: flex; position: relative; }
 .m-view { flex: 1; min-width: 0; min-height: 0; overflow: auto; }
-.m-view-graph { overflow: hidden; position: relative; }
+.m-view-graph { overflow: hidden; position: relative; display: flex; flex-direction: column; }
+/* The supervision plan sits above the graph in normal flow; the graph takes the rest instead of covering it. */
+.m-view-graph > .m-graph { position: relative; inset: auto; flex: 1; min-height: 0; }
 .m-messages { flex: none; max-height: 28dvh; overflow: auto; }
 .m-alert, .m-notice { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 12px; overflow-wrap: anywhere; }
 .m-alert { color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, var(--bg)); }

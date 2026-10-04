@@ -41,6 +41,18 @@ Diese Punkte kann kein Agent erledigen; sie blockieren H2c nicht.
 | Windows | Mehrsitzungs-, Aktivierungs-, Entscheidungs- und Push-Vertrag auf nativem Windows; 16 Verify-Schritte sind unter Linux nicht gemessen | 34.1–34.5 |
 | Persönliche Aktivierung | `pnpm activate` für den Stand nach H1/H2b; sichtbar ändert sich nichts | Betrieb |
 
+## Befunde aus dem Tablet-Test vom 4. Oktober 2026
+
+Am physischen Tablet mit dem Stand `v0.1.0-stable.1` bestätigt: Verbindung ohne
+neue Kopplung, Claude-Code- und Codex-Sitzung parallel im selben Projekt,
+Wechsel zwischen beiden. Offene Punkte daraus:
+
+| Punkt | Befund | Stand |
+|---|---|---|
+| Terminal-Sitzung wartet auf Eingabe | Eine interaktive CLI, die ihren Turn mit einer Rückfrage beendet hat, steht unter „Arbeitet“; ADE leitet aus dem laufenden Prozess bewusst keine Modellaktivität ab. Gewünscht: ein bestätigter Zustand „wartet auf dich“ unter „Braucht dich“, gespeist aus einem Turn-Ende-Signal der CLI (Hook/Notify von Codex und Claude Code), nicht aus Terminalruhe | beauftragt, nicht begonnen; Signalwege noch nicht geprüft |
+| Auftrag endet mit Rückfrage | Ein einmaliger Claude-Code-Auftrag, dessen Antwort nur eine Rückfrage ist, erscheint als „Abgeschlossen“ (Exit 0, 0 Dateien); im Graph lässt sich nicht antworten. Beantwortbare Rückfragen gibt es nur für native Codex-Agenten mit „Rückfragen erlauben“ | Befund, nicht beauftragt |
+| Überlappung im Tablet-Graph | Betreuungsplan-Kopf und Run-Leiste lagen übereinander | behoben, Treibernachweis Sitzungsnavigation 97/0 mit Negativkontrolle; noch nicht persönlich aktiviert |
+
 ## Beauftragt: Goal 35 — Zugang für Aufsichts-Sessions (3. Oktober 2026)
 
 [Goal 35](SUPERVISOR_ACCESS_GOALS.md) macht die heute als Text erteilte
