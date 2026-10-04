@@ -34,7 +34,7 @@ Diese Punkte kann kein Agent erledigen; sie blockieren H2c nicht.
 | Abnahme | Was zu tun ist | Betrifft |
 |---|---|---|
 | Reboot-Nachweis H0 | Rechner neu starten, danach `bash scripts/spikes/h0/boot-collect.sh`; anschliessend Rückbau der Unit `ade-host-spike-boot.service` beauftragen ([Kontexthandoff](CONTEXT_HANDOFF_2026-10-03.md)) | 34.6, 34.3 |
-| Tablet: „Autokauf“ | Tab neu laden, „Autokauf“ über „Erneut versuchen“ anlegen; `idee-2026-10-02-0235` über „Aus ADE entfernen“ aufräumen | Projektstart |
+| Tablet: Registrierung aufräumen | `idee-2026-10-02-0235` über „Aus ADE entfernen“ entfernen, falls noch sichtbar. Die Probe „Autokauf“ entfällt: Der Benutzer hat das Projekt am 4. Oktober auf Tablet und Workstation absichtlich gelöscht | Projektstart |
 | Tablet: Entscheidungen und Unterbrechung | neue Entscheidungsaktionen und Unterbrechungsanzeige am physischen Gerät prüfen; echte Codex-Rückfrage über die Ansicht | 34.3, 34.4 |
 | Tablet: Push | Empfang bei gesperrtem Bildschirm und für echte Aufgabenereignisse | 34.5 |
 | Tablet: Mobilfunk und Audio | Zugriff ausserhalb des WLAN, Mikrofon/Diktat am Gerät | 34.1, 34.2 |
