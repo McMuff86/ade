@@ -237,6 +237,50 @@ void (async () => {
     check('the narrowest setting is the documented minimum', await widthOf() === 280);
     await page.keyboard.press('ArrowLeft'); await page.keyboard.press('ArrowLeft');
   }
+  {
+    // Every job as its own movable box. The label of a job typed on this device stays on the device.
+    await closeInspector();
+    await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
+    const composer = page.getByRole('dialog', { name: 'Agent beauftragen', exact: true });
+    await composer.getByLabel('Name (optional)', { exact: true }).fill('');
+    await composer.getByLabel('Aufgabe', { exact: true }).fill('Frag   mich vorher und lege test.txt an\nZWEITE_ZEILE bleibt verborgen');
+    const launchedBefore = fixture.launched.length;
+    await composer.getByRole('button', { name: 'Aufgabe starten', exact: true }).click();
+    await composer.waitFor({ state: 'hidden' }); await closeInspector();
+    const runPicker = page.getByLabel('Aktiver Run', { exact: true });
+    const unnamed = fixture.orchestration.snapshot().runs.at(-1)!;
+    check('the picker names an unnamed job by the first line typed on this device', fixture.launched.length === launchedBefore + 1
+      && (await runPicker.locator(`option[value="${unnamed.id}"]`).textContent()) === 'Frag mich vorher und lege test.txt an');
+    check('the host still sends no prompt text for that job', fixture.orchestration.summarize(unnamed.id)[0]!.name === 'Single task'
+      && !JSON.stringify(fixture.orchestration.summarize(unnamed.id)).includes('test.txt'));
+    await runPicker.selectOption('all');
+    const overview = page.getByTestId('mobile-graph-overview'); await overview.waitFor();
+    const boxes = overview.getByTestId('graph-overview-box');
+    check('the overview shows one box per run, running work first', await boxes.count() === fixture.orchestration.snapshot().runs.length
+      && (await boxes.first().getAttribute('data-run-id')) !== null && await overview.getByText('ZWEITE_ZEILE', { exact: false }).count() === 0);
+    const box = overview.locator(`[data-run-id="${unnamed.id}"]`);
+    check('a job box names the job, its agent and its project', (await box.innerText()).includes('Frag mich vorher und lege test.txt an'));
+    const handle = box.getByRole('button', { name: 'Box verschieben: Frag mich vorher und lege test.txt an', exact: true });
+    const at = async () => { const b = (await box.boundingBox())!; return { x: Math.round(b.x), y: Math.round(b.y) }; };
+    const start = await at();
+    await handle.focus(); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowDown');
+    const moved = await at();
+    check('a box moves by keyboard through its handle', moved.x === start.x + 24 && moved.y === start.y + 24);
+    const grip = (await handle.boundingBox())!;
+    await page.mouse.move(grip.x + 20, grip.y + 20); await page.mouse.down(); await page.mouse.move(grip.x + 20 + 96, grip.y + 20 + 48, { steps: 4 }); await page.mouse.up();
+    const dragged = await at();
+    check('a box moves by dragging its handle', dragged.x === moved.x + 96 && dragged.y === moved.y + 48);
+    check('the arrangement is remembered on this device', (await page.evaluate(() => localStorage.getItem('ade-mobile-graph-layout')) ?? '').includes(unnamed.id));
+    await box.getByRole('button', { name: 'Auftrag öffnen: Frag mich vorher und lege test.txt an', exact: true }).click();
+    check('tapping a box opens its details beside the overview', await page.getByRole('complementary', { name: 'Run-Details', exact: true }).isVisible() && await overview.isVisible()
+      && await box.getAttribute('data-selected') === 'true');
+    check('the overview with details has no horizontal overflow', await noOverflow());
+    await closeInspector();
+    await overview.getByRole('button', { name: 'Anordnung zurücksetzen', exact: true }).click();
+    check('resetting the arrangement returns the box to the grid', (await at()).x !== dragged.x && await page.evaluate(() => localStorage.getItem('ade-mobile-graph-layout')) === '{}');
+    await overview.getByRole('button', { name: /^Run öffnen: Tablet managed run$/ }).click();
+    check('a team run box switches to that run\'s own graph', await runPicker.inputValue() === fixture.orchestration.snapshot().runs.find((run) => run.name === 'Tablet managed run')!.id);
+  }
   await closeInspector();
   const coordinatorNode = page.getByRole('button', { name: 'Agent Coordinator · orchestrator', exact: true });
   await coordinatorNode.focus(); await page.keyboard.press('Enter');
@@ -287,7 +331,7 @@ void (async () => {
   await page.getByRole('button', { name: 'Agent beauftragen', exact: true }).click();
   check('a new identity cannot replay an old uncertain command or draft', !(await page.getByRole('heading', { name: 'Antwort noch unklar' }).count()) && await page.getByLabel('Aufgabe', { exact: true }).inputValue() === '');
   check('browser storage is scoped to the new device and contains no revoked draft', await page.evaluate((id) => Object.keys(localStorage)
-    .every((key) => ['ade-mobile-theme', 'ade-mobile-view', 'ade-mobile-inspector-width'].includes(key) || key.startsWith(`ade-work:${id}:`))
+    .every((key) => ['ade-mobile-theme', 'ade-mobile-view', 'ade-mobile-inspector-width', 'ade-mobile-graph-layout'].includes(key) || key.startsWith(`ade-work:${id}:`))
     && !JSON.stringify(localStorage).includes('An uncertain request must never cross a revoked device identity.'), fixture.devices.activeDevices()[0]!.id));
   check('ordinary views use signed catalog/run/host and scoped workspace/session reads', endpoints.every((path) =>
     /^\/api\/v1\/(pair|session|health|host|catalog|events|tasks|runs)(\/[^/]+\/(start|cancel))?$/.test(path)

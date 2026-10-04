@@ -857,6 +857,17 @@ eigenem Startbefehl lassen sich nicht fortsetzen; starte dafür einen neuen Auft
 ADE entscheidet nicht selbst, ob die Antwort des Agenten eine Frage war: Der
 Auftrag bleibt „Abgeschlossen“, das Antwortfeld steht daneben.
 
+Am Tablet öffnet **Graph** mit **Alle Aufträge**: jede offene oder in den letzten
+24 Stunden beendete Arbeit ist eine eigene Box mit Agent, Projekt, Status und
+Startzeit. Antippen öffnet rechts die Details; ein Run mit mehreren Agents
+wechselt in seinen eigenen Graph. Über die Kopfzeile einer Box (Punktsymbol)
+lässt sie sich ziehen oder mit den Pfeiltasten verschieben; **Anordnung
+zurücksetzen** stellt das Raster wieder her. Die Anordnung gilt pro Gerät.
+Einen Auftrag ohne eigenen Namen benennt das Tablet nach der ersten Zeile, die
+du dort eingegeben hast. Dieser Text bleibt auf dem Gerät; der PC überträgt für
+automatische Namen weiterhin keinen Auftragstext. Aufträge, die am PC oder auf
+einem anderen Gerät gestartet wurden, heissen deshalb „Agent · Uhrzeit“.
+
 Am Tablet lässt sich die Details-Spalte rechts breiter ziehen: den Trenner mit
 dem Punktsymbol links der Spalte ziehen oder ihn fokussieren und die Pfeiltasten
 nutzen (Pos1: schmalste, Ende: breiteste Einstellung). Die Breite wird pro Gerät

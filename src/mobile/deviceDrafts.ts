@@ -21,6 +21,9 @@ function recovery(key: string, value: unknown): boolean {
 }
 function valid(key: string, value: unknown): boolean {
   if (key === 'terminal-controls-expanded') return typeof value === 'boolean';
+  // Labels of jobs submitted from this device: its own first prompt line, bounded; never fetched from the host.
+  if (key === 'job-labels') return object(value) && Object.keys(value).length <= 100
+    && Object.entries(value).every(([id, label]) => /^[A-Za-z0-9_.:-]{1,128}$/.test(id) && text(label, 61) && label.length > 0);
   if (key === 'project-membership') return value === null || object(value) && text(value.key, 64) && /^[\w-]+$/.test(value.key)
     && text(value.entryId, 33) && /^p[a-f0-9]{32}$/.test(value.entryId) && typeof value.included === 'boolean' && text(value.name, 200);
   if (key.startsWith('speech:')) return value === null || object(value) && Object.keys(value).length === 2 && text(value.key, 64) && /^[\w-]+$/.test(value.key) && validMobileSpeechCommand(value.command)

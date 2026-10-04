@@ -223,3 +223,14 @@ h1, h2, h3 { line-height: 1.35; }
 
 .m-push-choice { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .m-push-choice input { width: auto; flex: none; }
+
+/* Graph overview: one free-standing box per job; the handle moves it, the body opens it. */
+.m-overview-canvas { position: relative; min-width: 100%; min-height: 100%; }
+.m-overview-box { position: absolute; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 7px; background: var(--raised); box-shadow: 0 4px 12px #0001; }
+.m-overview-box[data-selected='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.m-overview-handle { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px; border: 0; border-bottom: 1px solid var(--line); border-radius: 7px 7px 0 0; background: var(--panel); color: var(--muted); font-size: 12px; text-align: left; cursor: grab; touch-action: none; user-select: none; }
+.m-overview-handle > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-overview-handle:active { cursor: grabbing; }
+.m-overview-open { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 12px; border: 0; border-radius: 0 0 7px 7px; background: transparent; color: inherit; text-align: center; }
+.m-overview-open strong { overflow-wrap: anywhere; }.m-overview-open small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.m-overview-handle:focus-visible, .m-overview-open:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

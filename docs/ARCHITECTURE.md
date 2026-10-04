@@ -466,6 +466,17 @@ the same pre-dispatch wait before its query/open transaction. The same native
 driver covers queued release, duplicate taps, disconnect cancellation and deliberate
 takeover/release afterwards.
 
+Tablet job overview (2026-10-04). The mobile graph opens on `GraphOverview`
+when more than one run is visible: one box per run from the existing
+`MobileRunSummary` list (open runs plus those updated within 24 hours), no new
+host endpoint. Box positions (`ade-mobile-graph-layout`) and the details column
+width (`ade-mobile-inspector-width`) are per-device layout preferences. The host
+contract is unchanged: summaries still replace prompt-derived names with
+`Single task`/`Task`. A job submitted from the device is labelled from the
+first line the user typed there, stored in the device-scoped draft store
+(`job-labels`, at most 100 entries of 60 characters, validated on read) and
+never requested from or sent to the host; other jobs show agent and start time.
+
 Ended sessions (2026-10-04). A session whose CLI ended by itself (for example
 `/exit`) has no lease left to renew: the pane sends no heartbeat for it, and
 `close` is the one command `RemoteTerminalService` accepts for an ended session,

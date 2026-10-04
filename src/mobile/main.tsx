@@ -16,6 +16,7 @@ import { Overview, RunRow } from './Overview';
 import { Graph } from './Graph';
 import { RunInspector } from './RunInspector';
 import { InspectorResize, useInspectorWidth } from './InspectorResize';
+import { GraphOverview, overviewRuns, rememberJobLabel, runLabel, type JobLabels } from './GraphOverview';
 import { HostRestartSection } from './HostRestartSection';
 import { MobileDiagnostics } from './Diagnostics';
 import { compareBuilds } from '../shared/buildInfo';
@@ -84,6 +85,7 @@ function MobileApp(): JSX.Element {
   const [deviceName, setDeviceName] = useState(translate("My mobile device"));
   const [theme, setTheme] = useState<'dark' | 'light'>(() => preference('theme', 'dark') === 'light' ? 'light' : 'dark');
   const [view, setView] = useState<View>(() => { const value = preference('view', 'overview'); return value === 'tasks' || value === 'notes' || value === 'work' || value === 'graph' || value === 'projects' || value === 'terminals' ? value : 'overview'; });
+  const [jobLabels, setJobLabels] = useDeviceDraft<JobLabels>(host.deviceId, 'job-labels', {});
   const [draftState, setDraftState, draftsDurable] = useDeviceDraft(host.deviceId, 'task-drafts', initialProjectDraft(emptyDraft()));
   const draft = draftState.drafts[draftState.active]!;
   const setDraft = (value: WorkDraft | ((current: WorkDraft) => WorkDraft)) => setDraftState((current) =>
@@ -131,7 +133,9 @@ function MobileApp(): JSX.Element {
   const runs = [...host.runs].sort((a, b) => b.updatedAt - a.updatedAt);
   const visibleRuns = filterProjectRuns(runs, projectFilter, agentFilter);
   const selectedRun = runs.find((run) => run.id === selected?.runId);
-  const graphRun = visibleRuns.find((run) => run.id === graphRunId) ?? visibleRuns[0];
+  // The graph opens on every job at once; one run is shown after choosing it. A single run needs no overview.
+  const showAllJobs = graphRunId === 'all' || (graphRunId === '' && visibleRuns.length > 1);
+  const graphRun = showAllJobs ? undefined : visibleRuns.find((run) => run.id === graphRunId) ?? visibleRuns[0];
   const filtered = visibleRuns.filter((run) => (filter === 'all' || (filter === 'open') === !finalStates.has(run.status))
     && `${run.name} ${run.repositoryName ?? ''} ${run.participants.map((participant) => participant.agentName).join(' ')}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   const select = (runId: string, participantId: string | null = null) => {
@@ -159,6 +163,7 @@ function MobileApp(): JSX.Element {
       const submitted = command.payload as { repositoryId: string; prompt?: string; goal?: string; name?: string };
       setDraftState((current) => completeProjectDraft(current, submitted.repositoryId, command.path === '/api/v1/tasks' ? 'task' : 'run',
         submitted.prompt ?? submitted.goal ?? '', submitted.name ?? ''));
+      if (command.path === '/api/v1/tasks' && !submitted.name?.trim() && submitted.prompt) setJobLabels((current) => rememberJobLabel(current, result.run.id, submitted.prompt!));
       setProjectFilter(''); setAgentFilter(''); setComposer(false); setView('graph'); setGraphRunId(result.run.id);
     }
     select(result.run.id);
@@ -219,8 +224,8 @@ function MobileApp(): JSX.Element {
         </form></section>
     </main> : <>
       {view !== 'tasks' && view !== 'notes' && <div className="m-toolbar">
-        <div className="m-toolbar-context">{view === 'graph' ? <label className="m-sr-only-label">{translate("Active Run")}<select aria-label={translate("Active Run")} value={graphRun?.id ?? ''} onChange={(event) => { setGraphRunId(event.target.value); setSelected(null); }}>
-          {!visibleRuns.length && <option value="">{translate("No run")}</option>}{visibleRuns.map((run) => <option key={run.id} value={run.id}>{run.name}</option>)}</select></label> : <h1>{viewLabel(view)}</h1>}
+        <div className="m-toolbar-context">{view === 'graph' ? <label className="m-sr-only-label">{translate("Active Run")}<select aria-label={translate("Active Run")} value={showAllJobs ? 'all' : graphRun?.id ?? ''} onChange={(event) => { setGraphRunId(event.target.value); setSelected(null); }}>
+          {!visibleRuns.length && <option value="">{translate("No run")}</option>}{visibleRuns.length > 1 && <option value="all">{translate("All jobs")}</option>}{visibleRuns.map((run) => <option key={run.id} value={run.id}>{runLabel(run, jobLabels)}</option>)}</select></label> : <h1>{viewLabel(view)}</h1>}
           {view === 'graph' && graphRun && <Status status={graphRun.status} />}<span className="m-toolbar-note">{view === 'overview' ? translate("Your workspace at a glance") : view === 'projects' ? translate("Open a project and get started") : view === 'terminals' ? translate("Sessions on your ADE computer") : view === 'work' ? `${runs.length} Runs` : graphRun?.phase ?? translate("Orchestration")}</span></div>
         {/* Work in flight is neither a room nor an action of this view: its own quiet group. Conversations sit in the navigation. */}
         <div className="m-toolbar-session" role="group" aria-label={translate("Ongoing work")}><SessionSwitchButton id="mobile-session-switch" /></div>
@@ -256,7 +261,9 @@ function MobileApp(): JSX.Element {
             : view === 'projects' ? <Projects host={host} onProject={setProjectWorkspace} intent={projectIntent} onIntentConsumed={() => setProjectIntent(undefined)} />
             : view === 'terminals' ? <Terminals host={host} target={terminalSelection} onTarget={setTerminalSelection} launchVersion={terminalLaunchVersion}
               onWorkspace={(agentId, repositoryId) => setWorkspace({ agentId, repositoryId })} />
-            : view === 'graph' ? <><MobileSupervisionGraph host={host} onProject={repositoryId => setSupervision({ repositoryId })} onNavigate={openSupervisedWork} /><Graph run={graphRun} host={host} catalog={host.catalog} selectedParticipant={selected && selected.runId === graphRun?.id ? selected.participantId : null} onSelect={(id) => { if (graphRun) select(graphRun.id, id); }} /></>
+            : view === 'graph' ? <><MobileSupervisionGraph host={host} onProject={repositoryId => setSupervision({ repositoryId })} onNavigate={openSupervisedWork} />{showAllJobs ? <GraphOverview runs={overviewRuns(visibleRuns)} labels={jobLabels} selectedRunId={selected?.runId ?? null}
+                onOpenJob={(run) => select(run.id, run.participants[0]?.id ?? null)} onOpenRun={(run) => { setGraphRunId(run.id); setSelected(null); }} />
+              : <Graph run={graphRun} label={graphRun && runLabel(graphRun, jobLabels)} host={host} catalog={host.catalog} selectedParticipant={selected && selected.runId === graphRun?.id ? selected.participantId : null} onSelect={(id) => { if (graphRun) select(graphRun.id, id); }} />}</>
               : <div className="m-work"><aside className="m-work-rail" aria-label={translate("Agent workspaces")}><h2>{translate("Agents")}</h2>{host.catalog?.agents.map((agent) => <button key={agent.id} onClick={(event) => { event.currentTarget.focus(); openAgent(agent.id); }}><MobileAvatar host={host} agent={agent} size={26} /><span>{agent.name}</span></button>)}</aside>
                 <div className="m-work-content"><div className="m-work-filters"><label>{translate("Search for runs")}<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={translate("Name, project or agent")} /></label>
                   <label>{translate("Status [53746174]")}<select aria-label={translate("Status [53746174]")} value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}><option value="all">{translate("All runs")}</option><option value="open">{translate("Open runs")}</option><option value="finished">{translate("Completed runs")}</option></select></label></div>

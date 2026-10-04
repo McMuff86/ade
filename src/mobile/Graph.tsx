@@ -14,7 +14,7 @@ import { RunFilesPanel } from '../renderer/graph/RunFilesPanel';
 import { useRunFilesPort } from './useRunFilesPort';
 import { workspaceError } from './AgentWorkspace';
 
-export function Graph({ run: suppliedRun, host, selectedParticipant, onSelect }: { run: MobileRunSummary | undefined; host: MobileHost; catalog: MobileCatalog | null;
+export function Graph({ run: suppliedRun, label, host, selectedParticipant, onSelect }: { run: MobileRunSummary | undefined; label?: string; host: MobileHost; catalog: MobileCatalog | null;
   selectedParticipant: string | null; onSelect: (id: string) => void;
 }): JSX.Element {
   useLocale();
@@ -59,7 +59,7 @@ export function Graph({ run: suppliedRun, host, selectedParticipant, onSelect }:
   };
   return <div className="m-graph" data-testid="mobile-graph">
     {filesOpen && <Dialog title={translate("Files of this run")} onClose={() => setFilesOpen(false)} fallbackId="view-tab-graph"><RunFilesPanel runId={run.id} port={filePort} online={host.status === 'online'} identity={host.identityVersion} errorText={workspaceError} /></Dialog>}
-    <div className="m-graph-activity-bar"><span>{run.name} · {localizedState(run.status)}</span><div className="m-graph-action-group" role="group" aria-label={translate("Run")}><button disabled={host.status !== 'online'} onClick={refresh}>{translate("Refresh run")}</button></div><div className="m-graph-action-group" role="group" aria-label={translate("Results")}><button onClick={() => setFilesOpen(true)}>{translate("Files of this run")}</button></div>
+    <div className="m-graph-activity-bar"><span>{label ?? run.name} · {localizedState(run.status)}</span><div className="m-graph-action-group" role="group" aria-label={translate("Run")}><button disabled={host.status !== 'online'} onClick={refresh}>{translate("Refresh run")}</button></div><div className="m-graph-action-group" role="group" aria-label={translate("Results")}><button onClick={() => setFilesOpen(true)}>{translate("Files of this run")}</button></div>
       {error && <span role="alert">{localizeAppMessage(error)}</span>}</div>
     <div className="m-graph-scroll" tabIndex={0} aria-label={translate("Graph canvas; scroll to pan")} onKeyDown={(event) => {
       if (event.target !== event.currentTarget) return;
