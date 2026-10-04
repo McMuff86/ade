@@ -281,6 +281,25 @@ void (async () => {
   check('PNG export follows the chosen resolution without changing the sheet', PNG.sync.read(readFileSync(largeFile)).width === 3200 && fixture.organizer.store.detail(noteId)!.document.sketches[0]!.width === 1600);
   await page.reload(); await page.getByRole('button', { name: /Idee für morgen/ }).click(); await page.getByRole('img', { name: 'foto.png' }).waitFor();
   check('reopened note retains editable text, image and drawing', await body.inputValue() === 'Grösse prüfen – mit Stift skizzieren.' && await page.getByRole('img', { name: 'foto.png' }).isVisible());
+  {
+    // Deleting a note is reachable from the top action row, without scrolling past the sketch.
+    await page.getByRole('button', { name: 'Zur Liste', exact: true }).click();
+    await page.getByRole('button', { name: 'Neue Notiz', exact: true }).click();
+    await page.getByLabel('Titel', { exact: true }).fill('Wegwerfnotiz');
+    await waitFor(() => fixture.organizer.store.index().entries.some(item => item.title === 'Wegwerfnotiz'), 'throwaway note synchronized');
+    const remove = page.getByRole('button', { name: 'Eintrag löschen', exact: true });
+    const place = await remove.evaluate(node => { const box = node.getBoundingClientRect(); return { top: box.top, bottom: box.bottom, inTopRow: !!node.closest('.organizer-editor-top'), viewport: innerHeight }; });
+    check('delete sits in the top action row of an open note and is visible without scrolling', place.inTopRow && place.top >= 0 && place.bottom <= place.viewport && await remove.count() === 1);
+    await remove.click();
+    const confirm = page.getByRole('dialog', { name: 'Eintrag löschen', exact: true }); await confirm.waitFor();
+    check('deleting asks for confirmation and keeps focus in the dialog', await confirm.evaluate(node => node.contains(document.activeElement)));
+    await confirm.getByRole('button', { name: 'Löschen bestätigen', exact: true }).click();
+    await waitFor(() => !fixture.organizer.store.index().entries.some(item => item.title === 'Wegwerfnotiz' && !(item as { deleted?: boolean }).deleted), 'throwaway note deleted on the PC');
+    check('a confirmed delete removes the note on the tablet and on the PC and leaves the other note alone',
+      await page.getByRole('button', { name: /Wegwerfnotiz/ }).count() === 0 && fixture.organizer.store.detail(noteId)?.document.title !== undefined);
+    await page.getByRole('button', { name: /Idee für morgen/ }).first().click();
+    await page.getByLabel('Titel', { exact: true }).waitFor();
+  }
   await context.setOffline(true); await page.getByRole('status').filter({ hasText: /^Offline$/ }).waitFor();
   await body.fill('Unterwegs ergänzt'); await page.getByRole('button', { name: 'Zur Liste', exact: true }).click();
   await page.getByRole('button', { name: /Idee für morgen/ }).click();

@@ -154,3 +154,6 @@
 .shell > .organizer .organizer-editor { padding: 18px 28px 32px; gap: 14px; }
 .shell > .organizer .organizer-images figure { padding: 8px; }
 .shell > .organizer .organizer-dialog { padding: 20px; gap: 14px; }
+
+/* Deleting sits in the top action row, away from the other actions, so it is reachable without scrolling past the sketch. */
+.organizer-editor-top .organizer-delete { margin-left: auto; }

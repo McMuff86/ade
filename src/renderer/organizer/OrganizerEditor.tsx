@@ -74,6 +74,7 @@ export function OrganizerEditor({ entry, scope, cache, port, voiceDrafts, disabl
       {value.kind === 'task' ? <><button type="button" disabled={readOnly || saving} aria-pressed={value.done} onClick={() => patch({ done: !value.done })}>{value.done ? translate("Reopen") : translate("Mark as done")}</button>
         <button type="button" disabled={readOnly || saving || value.runIds.length >= 32} onClick={() => void safely(async () => onDispatch())}>{translate("Assign to agent")}</button></>
         : <button type="button" disabled={readOnly || saving} onClick={() => void safely(() => onTask(current.current, selectedText || undefined))}>{selectedText ? translate("Task from marked text") : translate("Create a task from it")}</button>}
+      <button type="button" className="organizer-danger organizer-delete" disabled={readOnly || saving} onClick={() => setDeleteOpen(true)}>{translate("Delete entry")}</button>
     </div>
     <p className="organizer-help" role="status">{saveError ? translate("Not yet saved. This draft is only preserved in the open app.") : saving ? translate("Saving on this device…") : entry.draft ? translate("Draft saved on this device.") : translate("Saved.")}</p>
     {saveError && <p role="alert" className="organizer-error">{saveError} <button type="button" onClick={() => void editing.flush().catch(() => undefined)}>{translate("Try saving again")}</button></p>}
@@ -117,8 +118,7 @@ export function OrganizerEditor({ entry, scope, cache, port, voiceDrafts, disabl
     {!!value.runIds.length && <section aria-label={translate("Assigned jobs")}><h3>{translate("Jobs and results")}</h3>{value.runIds.map((id, index) => <button type="button" key={id} onClick={() => onRun(id)}>{translate("Job")}{" "}{index + 1}{" "}{translate("Open [c3b66666]")}</button>)}</section>}
     {value.sourceNoteId && <p className="organizer-help">{translate("Created from a note. The original note remains.")}</p>}
     <footer className="organizer-tools" role="group" aria-label={translate("Export and other actions")}><button type="button" disabled={exporting} onClick={() => void exportFile('md')}>{translate("Text as Markdown")}</button>
-      <button type="button" disabled={exporting} onClick={() => void exportFile('pdf')}>{exporting ? translate("Creating export…") : translate("Save as PDF")}</button>
-      <button type="button" className="organizer-danger" disabled={readOnly || saving} onClick={() => setDeleteOpen(true)}>{translate("Delete entry")}</button></footer>
+      <button type="button" disabled={exporting} onClick={() => void exportFile('pdf')}>{exporting ? translate("Creating export…") : translate("Save as PDF")}</button></footer>
     {deleteOpen && <Modal title={translate("Delete entry")} className="organizer-dialog" onClose={() => setDeleteOpen(false)} fallbackFocus={() => window.document.querySelector('.organizer-header button')}>
       <p>„{value.title || translate("Untitled entry")}{translate("” from the list? Other versions being edited at the same time will be preserved.")}</p><div className="organizer-tools"><button type="button" onClick={() => setDeleteOpen(false)}>{translate("Keep")}</button>
         <button type="button" onClick={() => void safely(onDelete)}>{translate("Confirm deletion")}</button></div></Modal>}
