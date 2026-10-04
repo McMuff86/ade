@@ -8,7 +8,7 @@
  */
 import { EventEmitter } from 'node:events';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { DesktopClients, type ClientContents } from '../src/main/desktop/DesktopClients';
 import { DictationJobs } from '../src/main/settings/DictationJobs';
 
@@ -53,7 +53,7 @@ const mainDir = join(import.meta.dirname, '..', 'src', 'main');
 const files: string[] = [];
 const walk = (dir: string): void => { for (const name of readdirSync(dir)) { const path = join(dir, name); if (statSync(path).isDirectory()) walk(path); else if (path.endsWith('.ts')) files.push(path); } };
 walk(mainDir);
-const owners = files.filter((file) => readFileSync(file, 'utf8').includes('desktop:${')).map((file) => relative(mainDir, file));
+const owners = files.filter((file) => readFileSync(file, 'utf8').includes('desktop:${')).map((file) => relative(mainDir, file).split(sep).join('/'));
 check('desktop:<clientId> owners are built only in the host handler table (no persisted owner to migrate)', owners.length === 1 && owners[0] === 'host/composeHost.ts');
 
 console.log(`\n${passed} passed, ${failed} failed`);

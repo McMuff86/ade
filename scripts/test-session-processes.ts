@@ -41,7 +41,9 @@ readline.createInterface({input:process.stdin}).on('line', line => {
 });
 `);
     const quote = (value: string) => `'${value.replace(/'/g, process.platform === 'win32' ? "''" : "'\\''")}'`;
-    const command = `${process.platform === 'win32' ? '& ' : ''}${quote(process.execPath)} ${quote(fixture)}`;
+    // The fixture runs under the runner's Node: Electron is a GUI-subsystem binary on
+    // Windows, so a shell neither waits for it nor attaches its output to the console.
+    const command = `${process.platform === 'win32' ? '& ' : ''}${quote(process.env.ADE_TEST_FIXTURE_NODE ?? process.execPath)} ${quote(fixture)}`;
     const agents: Agent[] = ['A', 'B', 'C'].map(name => {
       const workspaceDir = join(root, `workspace-${name}`); mkdirSync(workspaceDir);
       return { id: name, categoryId: 'fixtures', name, runtime: 'custom', permissionMode: 'default',
@@ -61,7 +63,12 @@ readline.createInterface({input:process.stdin}).on('line', line => {
     const output = (id: string) => Buffer.from(manager!.attach(id).replayBase64, 'base64').toString('utf8');
     const pids: string[] = [];
     for (const session of sessions) {
-      await until('fixture ready', () => /ADE_READY_\d+/.test(output(session.id)) && manager!.getSessionMeta(session.id)?.program?.status === 'running');
+      try {
+        await until('fixture ready', () => /ADE_READY_\d+/.test(output(session.id)) && manager!.getSessionMeta(session.id)?.program?.status === 'running');
+      } catch (error) {
+        console.error(`fixture not ready: program=${JSON.stringify(manager.getSessionMeta(session.id)?.program)} output=${JSON.stringify(output(session.id).slice(-600))}`);
+        throw error;
+      }
       pids.push(/ADE_READY_(\d+)/.exec(output(session.id))![1]!);
     }
     check('four ADE sessions own four distinct native processes', new Set(pids).size === 4 && new Set(sessions.map(session => session.id)).size === 4);
@@ -201,7 +208,7 @@ if (process.versions.electron) {
   // the test runner's Node. This mode needs no BrowserWindow or network listener.
   const require = createRequire(import.meta.url);
   const child = spawn(require('electron') as string, ['--import', 'tsx', fileURLToPath(import.meta.url)], {
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: 'inherit', windowsHide: true,
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', ADE_TEST_FIXTURE_NODE: process.execPath }, stdio: 'inherit', windowsHide: true,
   });
   const timeout = setTimeout(() => { console.error('Native session process test timed out'); child.kill(); process.exitCode = 1; }, 90_000);
   child.on('error', error => { clearTimeout(timeout); console.error(error); process.exitCode = 1; });

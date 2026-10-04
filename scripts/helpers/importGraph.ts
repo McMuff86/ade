@@ -14,6 +14,7 @@
 import ts from 'typescript';
 import { readFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export interface ImportGraph {
   /** Repository source files reached from the entries, relative to the root. */
@@ -24,7 +25,11 @@ export interface ImportGraph {
   chains: Map<string, string[]>;
 }
 
-const REPOSITORY = resolve(dirname(new URL(import.meta.url).pathname), '..', '..');
+const REPOSITORY = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+/** TypeScript reports resolved files with forward slashes on every platform; keep one spelling. */
+const slashes = (path: string): string => path.replace(/\\/g, '/');
+const relativeTo = (root: string, file: string): string => slashes(relative(root, file));
 
 function compilerOptions(): ts.CompilerOptions {
   const configPath = resolve(REPOSITORY, 'tsconfig.node.json');
@@ -87,8 +92,8 @@ export function importGraph(entries: string[], root: string = REPOSITORY): Impor
   const packages = new Map<string, string[]>();
   const queue: string[] = [];
   for (const entry of entries) {
-    const absolute = resolve(root, entry);
-    chains.set(absolute, [relative(root, absolute)]);
+    const absolute = slashes(resolve(root, entry));
+    chains.set(absolute, [relativeTo(root, absolute)]);
     queue.push(absolute);
   }
   while (queue.length > 0) {
@@ -97,11 +102,11 @@ export function importGraph(entries: string[], root: string = REPOSITORY): Impor
     for (const specifier of runtimeSpecifiers(file)) {
       if (specifier.startsWith('node:')) continue;
       const resolved = ts.resolveModuleName(specifier, file, options, ts.sys).resolvedModule;
-      const target = resolved?.resolvedFileName;
+      const target = resolved && slashes(resolved.resolvedFileName);
       const local = target && !resolved.isExternalLibraryImport && !target.includes('/node_modules/')
         && !target.endsWith('.d.ts');
       if (local) {
-        if (!chains.has(target)) { chains.set(target, [...chain, relative(root, target)]); queue.push(target); }
+        if (!chains.has(target)) { chains.set(target, [...chain, relativeTo(root, target)]); queue.push(target); }
         continue;
       }
       if (!specifier.startsWith('.') && !specifier.startsWith('/')) {
@@ -111,8 +116,8 @@ export function importGraph(entries: string[], root: string = REPOSITORY): Impor
     }
   }
   return {
-    modules: [...chains.keys()].map((file) => relative(root, file)).sort(),
+    modules: [...chains.keys()].map((file) => relativeTo(root, file)).sort(),
     packages,
-    chains: new Map([...chains].map(([file, value]) => [relative(root, file), value])),
+    chains: new Map([...chains].map(([file, value]) => [relativeTo(root, file), value])),
   };
 }
