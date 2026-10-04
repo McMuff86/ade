@@ -77,6 +77,14 @@ persönliche Aktivierung siehe unten.
   `~/ADE-Backups/Activate-JobOverview-2026-10-04T21-41-58-042Z`. Vollständiges
   `pnpm verify` davor: einmal 31/0/16, einmal 30/1/16 (wieder
   `linux-secret-service`).
+- **Aktiviert (5. Oktober 2026, 00:03 CEST):** Commit `d2c4475` (unterbrochene
+  Einträge in der Übersicht schliessen, PC und Tablet) über
+  `pnpm activate -- -Label CloseInterrupted`: Gate 14/0/1 nicht gemessen, neuer
+  Host **PID 1387323**, Quelle `ae21518db41e7716b0db`; Backup
+  `~/ADE-Backups/Activate-CloseInterrupted-2026-10-04T22-03-54-616Z`. Davor
+  volles `pnpm verify` bis auf eine inzwischen behobene Fokusprüfung grün;
+  die betroffenen Treiber danach einzeln grün (`linux-agent-tablet` 65/0,
+  Sitzungsnavigation 97/0). Es läuft genau eine ADE-Instanz.
 - **Nächster Schritt:** Schlüsselbund-Treiber stabilisieren, dann H2c ([HOST_SECRETS_H2](HOST_SECRETS_H2.md)).
 
 ## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)
