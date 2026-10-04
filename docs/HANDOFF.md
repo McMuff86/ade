@@ -3,6 +3,34 @@
 Neuer Kontext für Goal 34.6: zuerst [Kontexthandoff 3. Oktober](CONTEXT_HANDOFF_2026-10-03.md)
 lesen (Haltepunkt, offene Benutzerentscheide, Code-Landkarte H1, Stolpersteine).
 
+## Stabilisierung vor H2c (4. Oktober 2026, abends)
+
+Auf Benutzerauftrag Feature-Stopp an der H2b-Grenze; kein Produktcode geändert,
+keine persönliche Aktivierung (Instanz läuft weiter aus dem Build vom 2. Oktober).
+
+- **Git:** alle gemergten Branches lokal und auf GitHub gelöscht; es bleiben
+  `main` und lokal `feat/coordinator-linux` (auf Wunsch behalten).
+- **Doku:** `8a1a683` kürzt HANDOFF/STATUS/ROADMAP und verschiebt abgeschlossene
+  Nachweise sowie das Ursprungsmaterial aus dem Root nach `docs/archived/`
+  ([Audit](DOCUMENTATION_AUDIT.md)).
+- **Windows-CI:** war seit 30. September rot. `2d521a0` behebt drei Testfehler
+  (Import-Graph-Pfade, Pfadtrenner, Fixture unter Runner-Node statt Electron);
+  `13f9b15` trägt die gemessenen Windows-Mindestzahlen ein. CI-Lauf
+  `37224990040`: Linux und Windows grün, je 114 Suiten.
+- **Port-Helfer:** `scripts/helpers/fixturePort.ts` ersetzt die
+  `listen(0)`-Reservierung in `conversation-electron` und den sieben weiteren
+  Electron-Treibern. Unter Linux liegt der Port unterhalb des Ephemeral-Bereichs;
+  unter Windows bleibt das Verhalten unverändert. Vollständiges `pnpm verify`
+  danach: **31 bestanden / 0 Fehler / 16 nicht gemessen**, 114 Suiten / 4.735
+  Checks; `conversation-electron` 90/0, `mobile-electron` 43/0,
+  Sitzungsnavigation 96/0. Die fünf Windows-only-Treiber (Diktat, Reply-Speech,
+  Setup, Remote-Restart, Remote-Terminal) sind hier nur typgeprüft.
+- **Lokal:** vier `home/`-Caches alter Prüfläufe unter `test-results/` gelöscht
+  (9,0 GB → 195 MB); zitierte Logs und JSON-Belege bleiben.
+- **Nur durch den Benutzer:** siehe
+  [ROADMAP, offene Abnahmen](ROADMAP.md#offene-abnahmen-durch-den-benutzer).
+- **Nächster Schritt:** H2c ([HOST_SECRETS_H2](HOST_SECRETS_H2.md)).
+
 ## Goal 34.6 H2b: nativer Linux-Schlüsselbund (4. Oktober 2026)
 
 Auf Benutzerauftrag H2a als **`61322f3`** committet und mit den Goals
@@ -205,8 +233,8 @@ wartet auf einen Neustart durch den Benutzer.
   noch `test-mobile-electron`, `test-dictation-electron`,
   `test-remote-restart-electron`, `test-reply-speech-electron`,
   `test-setup-electron`, `test-remote-terminal-electron` und
-  `test-session-navigation-electron`; dafür ist später ein gemeinsamer Helfer
-  vorgesehen.
+  `test-session-navigation-electron`; seit dem 4. Oktober nutzen alle den
+  gemeinsamen Helfer `scripts/helpers/fixturePort.ts`.
 - **H1g, Handler-Tabelle:** 138 der 151 Kanäle sind Host-Handler in
   `composeHost` (Registrierungen unverändert, die `live.`-Präfixe aus H1f
   entfallen) und werden nur über `host.dispatch` erreicht; `ipc.ts` registriert

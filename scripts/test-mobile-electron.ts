@@ -2,13 +2,13 @@
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { createServer } from 'node:net';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { reconnectTablet } from './helpers/tabletConnection';
 import { runQuestionFlow } from './helpers/runQuestionFlow';
 import { runDeletionFlow } from './helpers/runDeletionFlow';
 import { mainEntry } from './helpers/buildOutput';
+import { fixturePort } from './helpers/fixturePort';
 
 let passed = 0; let failed = 0;
 const check = (label: string, condition: boolean): void => { if (condition) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
@@ -18,10 +18,7 @@ let app: ElectronApplication | undefined; let browser: Browser | undefined; let 
 let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
 
 void (async () => {
-  const reservation = createServer();
-  await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
-  const address = reservation.address(); if (!address || typeof address === 'string') throw new Error('no fixture port');
-  const port = address.port; await new Promise<void>((done) => reservation.close(() => done()));
+  const port = await fixturePort();
   app = await electron.launch({ args: [mainEntry()], cwd: resolve('.'), timeout: 30_000,
     env: { ...process.env, ADE_USER_DATA_DIR: join(root, 'profile'), ADE_HOST_API_ENABLED: '0', ADE_MOBILE_PORT: String(port), NODE_ENV: 'test' } });
   // Patch the built-in dependency used by the bundled production controller. No production test hook.

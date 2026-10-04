@@ -27,6 +27,20 @@ Commits der Stabilisierung: `5ea398f` (Push-Countdown), `198e39b` (34.4),
 Zwischenstände des Tages (Aktivierungen 08:14, 10:35:46 und 12:32:53 CEST,
 Verify-Läufe 103–105 Suiten) stehen in STATUS und HANDOFF.
 
+## Offene Abnahmen durch den Benutzer
+
+Diese Punkte kann kein Agent erledigen; sie blockieren H2c nicht.
+
+| Abnahme | Was zu tun ist | Betrifft |
+|---|---|---|
+| Reboot-Nachweis H0 | Rechner neu starten, danach `bash scripts/spikes/h0/boot-collect.sh`; anschliessend Rückbau der Unit `ade-host-spike-boot.service` beauftragen ([Kontexthandoff](CONTEXT_HANDOFF_2026-10-03.md)) | 34.6, 34.3 |
+| Tablet: „Autokauf“ | Tab neu laden, „Autokauf“ über „Erneut versuchen“ anlegen; `idee-2026-10-02-0235` über „Aus ADE entfernen“ aufräumen | Projektstart |
+| Tablet: Entscheidungen und Unterbrechung | neue Entscheidungsaktionen und Unterbrechungsanzeige am physischen Gerät prüfen; echte Codex-Rückfrage über die Ansicht | 34.3, 34.4 |
+| Tablet: Push | Empfang bei gesperrtem Bildschirm und für echte Aufgabenereignisse | 34.5 |
+| Tablet: Mobilfunk und Audio | Zugriff ausserhalb des WLAN, Mikrofon/Diktat am Gerät | 34.1, 34.2 |
+| Windows | Mehrsitzungs-, Aktivierungs-, Entscheidungs- und Push-Vertrag auf nativem Windows; 16 Verify-Schritte sind unter Linux nicht gemessen | 34.1–34.5 |
+| Persönliche Aktivierung | `pnpm activate` für den Stand nach H1/H2b; sichtbar ändert sich nichts | Betrieb |
+
 ## Beauftragt: Goal 35 — Zugang für Aufsichts-Sessions (3. Oktober 2026)
 
 [Goal 35](SUPERVISOR_ACCESS_GOALS.md) macht die heute als Text erteilte

@@ -5,7 +5,6 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, exist
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { createServer } from 'node:net';
 import { execFileSync } from 'node:child_process';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
 import { expect } from 'playwright/test';
@@ -30,6 +29,7 @@ import { projectLauncherFlow } from './helpers/projectLauncherFlow';
 import { randomUUID } from 'node:crypto';
 import { ExecutionBackendService } from '../src/main/execution/ExecutionBackendService';
 import { mainEntry } from './helpers/buildOutput';
+import { fixturePort } from './helpers/fixturePort';
 
 let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean): void => { if (ok) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
@@ -69,9 +69,7 @@ void (async () => {
     + 'if (cli == "CODEX" && Array.IndexOf(args, "-c") >= 0) { int model = Array.IndexOf(args, "--model"); Console.WriteLine("ADE_SESSION_CODEX_READY model " + (model >= 0 && model + 1 < args.Length ? args[model + 1] : "default")); } else Console.WriteLine(result);'));
   execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', compile, join(bin, 'fixture.exe')], { windowsHide: true, timeout: 30_000 });
   for (const cli of ['hermes', 'codex', 'claude', 'grok', 'ollama', 'qwen']) copyFileSync(join(bin, 'fixture.exe'), join(bin, `${cli}.exe`));
-  const reservation = createServer(); await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
-  const address = reservation.address(); if (!address || typeof address === 'string') throw new Error('missing port');
-  const port = address.port; await new Promise<void>((done) => reservation.close(() => done()));
+  const port = await fixturePort();
   const repoPath = join(root, 'repository'); mkdirSync(repoPath);
   execFileSync('git', ['init', '--initial-branch=main', repoPath], { windowsHide: true });
   execFileSync('git', ['-C', repoPath, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', '-c', 'commit.gpgSign=false', 'commit', '--allow-empty', '-m', 'Fixture'], { windowsHide: true });

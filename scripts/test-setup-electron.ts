@@ -4,11 +4,11 @@ import { expect } from 'playwright/test';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
-import { createServer } from 'node:net';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright';
 import { writeModelCliFixtures, MODEL_FIXTURE_CATALOG } from './fixtures/model-clis';
 import { checkMobileSetup } from './helpers/setupMobileChecks';
 import { mainEntry } from './helpers/buildOutput';
+import { fixturePort } from './helpers/fixturePort';
 
 let passed = 0; let failed = 0;
 const check = (name: string, ok: boolean) => { if (ok) { passed++; console.log(`  ok  ${name}`); } else { failed++; console.error(`FAIL  ${name}`); } };
@@ -17,9 +17,7 @@ const evidence = resolve('test-results/setup'); mkdirSync(evidence, { recursive:
 let app: ElectronApplication | undefined; let page: Page | undefined;
 void (async () => {
   if (process.platform !== 'win32') throw new Error('Setup flow is currently measured on native Windows');
-  const reservation = createServer(); await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
-  const address = reservation.address(); if (!address || typeof address === 'string') throw new Error('Missing fixture port');
-  const port = address.port; await new Promise<void>((done) => reservation.close(() => done()));
+  const port = await fixturePort();
   const cli = writeModelCliFixtures(root); const projects = join(root, 'projects'); const repo = join(projects, 'Erstes Projekt'); mkdirSync(repo, { recursive: true });
   execFileSync('git', ['init', '--initial-branch=main', repo], { windowsHide: true });
   writeFileSync(join(repo, 'AGENTS.md'), '# Existing project instructions\n');

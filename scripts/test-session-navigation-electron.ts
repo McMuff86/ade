@@ -3,7 +3,6 @@ import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, copyFileSync } fro
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { createServer } from 'node:net';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
 import { mainEntry } from './helpers/buildOutput';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
@@ -12,6 +11,7 @@ import { posixProfileFixture } from './helpers/posixProfileFixture';
 import { linuxAgentTabletFlow } from './helpers/linuxAgentTabletFlow';
 import { runQuestionFlow } from './helpers/runQuestionFlow';
 import { DEFAULT_CONFIG } from '../src/shared/types';
+import { fixturePort } from './helpers/fixturePort';
 
 let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean): void => {
@@ -28,15 +28,7 @@ let desktop: Page | undefined; let tablet: Page | undefined;
 let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
 
 void (async () => {
-  const reservation = createServer();
-  await new Promise<void>((done, fail) => {
-    reservation.once('error', fail);
-    reservation.listen(0, '127.0.0.1', done);
-  });
-  const address = reservation.address();
-  if (!address || typeof address === 'string') throw new Error('Missing fixture port');
-  const port = address.port;
-  await new Promise<void>(done => reservation.close(() => done()));
+  const port = await fixturePort();
   // Replace only the external transport dependency. The real host, device store,
   // authorization, PTYs and UI stay in use. No production test switch.
   const launcher = join(root, 'launch.cjs');

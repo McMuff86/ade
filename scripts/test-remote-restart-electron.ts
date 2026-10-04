@@ -2,11 +2,11 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { createServer } from 'node:net';
 import { execFileSync, spawn } from 'node:child_process';
 import { _electron as electron, chromium, type ElectronApplication, type Browser, type Page } from 'playwright';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { mainEntry } from './helpers/buildOutput';
+import { fixturePort } from './helpers/fixturePort';
 
 let passed = 0; let failed = 0;
 const check = (label: string, ok: boolean): void => { if (ok) { passed++; console.log(`  ok  ${label}`); } else { failed++; console.error(`FAIL  ${label}`); } };
@@ -17,9 +17,7 @@ let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
 let originalPid = 0;
 void (async () => {
   if (process.platform !== 'win32') throw new Error('Remote relaunch is currently measured on native Windows only');
-  const reservation = createServer(); await new Promise<void>((done) => reservation.listen(0, '127.0.0.1', done));
-  const address = reservation.address(); if (!address || typeof address === 'string') throw new Error('missing fixture port');
-  const port = address.port; await new Promise<void>((done) => reservation.close(() => done()));
+  const port = await fixturePort();
   const launcher = join(root, 'launch.cjs'); const pidFile = join(root, 'pids.jsonl');
   // This entry is inherited by Electron relaunch, so both processes use the
   // same simulated private route without touching the operator's Tailscale.

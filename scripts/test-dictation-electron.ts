@@ -2,7 +2,6 @@ import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { createServer } from 'node:net';
 import { _electron as electron, chromium, type Browser, type ElectronApplication, type Page } from 'playwright';
 import { mobileTlsProxy } from './helpers/mobileBrowser';
 import { nativeUsageFixtureSource } from './helpers/nativeUsageFixture';
@@ -10,6 +9,7 @@ import { LIVE_DICTATION_MAX_SECONDS } from '../src/shared/liveDictation';
 import { expect } from 'playwright/test';
 import { terminalMediaFlow } from './helpers/terminalMediaFlow';
 import { mainEntry } from './helpers/buildOutput';
+import { fixturePort } from './helpers/fixturePort';
 
 let passed = 0; let app: ElectronApplication | undefined; let browser: Browser | undefined; let proxy: Awaited<ReturnType<typeof mobileTlsProxy>> | undefined;
 const imageOnly = process.argv.includes('--terminal-image-only');
@@ -91,9 +91,7 @@ ${nativeUsageFixtureSource}
   const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], { windowsHide: true });
   git('init', '--initial-branch=main'); git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', '-c', 'commit.gpgSign=false', 'commit', '--allow-empty', '-m', 'Fixture');
   const launcher = join(root, 'launch.cjs');
-  const reservation = createServer(); await new Promise<void>(done => reservation.listen(0, '127.0.0.1', done));
-  const address = reservation.address(); if (!address || typeof address === 'string') throw new Error('No fixture port');
-  const port = address.port; await new Promise<void>(done => reservation.close(() => done()));
+  const port = await fixturePort();
   writeFileSync(launcher, `const fs = require('node:fs'); const original = global.fetch;
 global.fetch = async (url, init) => {
   if (String(url) === 'https://api.elevenlabs.io/v1/voices') return Response.json({voices:[{voice_id:'EXAVITQu4vr4xnSDxMaL',name:'Sarah',labels:{gender:'female'}}]});

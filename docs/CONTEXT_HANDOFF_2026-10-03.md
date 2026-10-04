@@ -99,9 +99,9 @@ bevor ein fehlender Wrapping-Key als Erststart gilt; Zustände `locked` und
 vom 3. Oktober: Schlüsselbund bleibt ohne Passwort, `/` und `/home` liegen auf
 LUKS `nvme2n1p2`).
 
-Bekannte spätere Baustelle: Sieben Electron-Treiber haben dasselbe
-`listen(0)`-Reservierungsmuster wie der behobene `conversation-electron`
-(Liste in HANDOFF); dafür ist ein gemeinsamer Helfer vorgesehen.
+Erledigt am 4. Oktober: Die sieben Electron-Treiber mit demselben
+`listen(0)`-Reservierungsmuster wie `conversation-electron` nutzen jetzt den
+gemeinsamen Helfer `scripts/helpers/fixturePort.ts`.
 
 ## Arbeitsweise und Zusammenarbeit
 
