@@ -272,15 +272,17 @@ export class RemoteTerminalService {
       entry = this.entry(session, binding!);
       if (!this.allowed(deviceId)) { this.port.kill(session.id); failure(translate("Terminal permission was revoked.")); }
     } else {
-      entry = this.requireEntry(input.terminalId, binding!);
-      if (!this.visible(deviceId, this.port.list().find((session) => session.id === entry.sessionId)!)) throw new RemoteApiError(403, 'scope_not_granted');
+      // A session whose CLI ended by itself has no lease left to renew; it can still be removed.
+      entry = this.requireEntry(input.terminalId, binding!, input.operation === 'close');
+      const target = this.port.list().find((session) => session.id === entry.sessionId)!;
+      if (!this.visible(deviceId, target)) throw new RemoteApiError(403, 'scope_not_granted');
       if (input.operation === 'release') {
         if (entry.control?.deviceId === deviceId) this.release(entry);
         else if (entry.resume?.deviceId === deviceId) entry.resume = undefined;
         return { terminalId: entry.id };
       }
       if (input.operation === 'close') {
-        if (entry.control?.deviceId !== deviceId) failure(translate("Take over the terminal input before terminating."));
+        if (target.status === 'running' && entry.control?.deviceId !== deviceId) failure(translate("Take over the terminal input before terminating."));
         this.port.kill(entry.sessionId); this.release(entry); return { terminalId: entry.id };
       }
       if (entry.control && entry.control.deviceId !== deviceId) failure(translate("Another device controls this terminal. Release it on the desktop."));
@@ -422,9 +424,9 @@ export class RemoteTerminalService {
     return { sequence: input.sequence, replayed: false };
   }
 
-  private requireEntry(id: string, binding: WorkbenchScope): TerminalEntry {
+  private requireEntry(id: string, binding: WorkbenchScope, allowEnded = false): TerminalEntry {
     const entry = this.entries.get(id); const session = this.port.list().find((item) => item.id === entry?.sessionId);
-    if (!entry || !session || session.status !== 'running' || session.kind !== 'interactive' || session.runTaskId || session.remoteAccessBlocked
+    if (!entry || !session || (!allowEnded && session.status !== 'running') || session.kind !== 'interactive' || session.runTaskId || session.remoteAccessBlocked
       || !this.workbench.sessionMatches(binding, session) || entry.workspaceVersion !== this.workbench.version(binding)) failure(translate("This interactive session is not available."));
     return entry!;
   }

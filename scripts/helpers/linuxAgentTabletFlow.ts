@@ -124,6 +124,22 @@ export async function linuxAgentTabletFlow(desktop: Page, tablet: Page, root: st
   await tablet.setViewportSize({ width: 390, height: 844 });
   await tablet.screenshot({ path: join(evidence, 'linux-tablet-file-diff.png') });
   check('file and diff view fits a narrow tablet browser', await first.evaluate(node => node.scrollWidth <= node.clientWidth + 1));
+  // A CLI that ends by itself (e.g. /exit) leaves an ended session. It must stay calm through the
+  // next lease heartbeat and remain removable, although there is no input lease left to renew.
+  await tablet.setViewportSize({ width: 1280, height: 800 });
+  await first.getByRole('button', { name: 'Terminal', exact: true }).first().click();
+  const endButton = first.getByRole('button', { name: 'Terminal beenden', exact: true });
+  await first.locator('.xterm-helper-textarea').first().focus(); await tablet.keyboard.press('Control+d');
+  await first.getByText('Sitzung beendet', { exact: true }).first().waitFor();
+  const endedTop = Math.round((await endButton.boundingBox())!.y);
+  await tablet.waitForTimeout(11_000);
+  check('ended CLI session shows no refusal and keeps its end button in place across a heartbeat', await first.getByRole('alert').filter({ visible: true }).count() === 0
+    && Math.round((await endButton.boundingBox())!.y) === endedTop && await endButton.isEnabled());
+  const liveBefore = (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length;
+  await endButton.click();
+  await tablet.getByRole('button', { name: 'Beenden bestätigen', exact: true }).click();
+  await expect.poll(async () => (await desktop.evaluate(() => window.ade.invoke('pty:list'))).sessions.length).toBe(liveBefore - 1);
+  check('tablet removes the ended session without a refusal', await first.getByRole('alert').filter({ visible: true }).count() === 0);
   await tablet.keyboard.press('Escape');
   for (const session of setup) await desktop.evaluate(sessionId => window.ade.invoke('pty:kill', { sessionId }), session.id);
   await desktop.evaluate(sessionId => window.ade.invoke('pty:kill', { sessionId }), launched.id);

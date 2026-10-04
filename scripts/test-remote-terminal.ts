@@ -175,6 +175,10 @@ void (async () => {
   await refuses('retry after failed write cannot type into the process', () => app.remoteTerminal(failedContext, failedInput, 'input'), 'command_uncertain');
   await command({ operation: 'claim', terminalId: opened.terminalId }); await command({ operation: 'close', terminalId: opened.terminalId });
   check('owner can explicitly close the process', sessions[0]!.status === 'exited');
+  // A CLI that ended by itself leaves no lease to renew; removing its session must not need one.
+  let endedClose = true; try { await command({ operation: 'close', terminalId: opened.terminalId }); } catch { endedClose = false; }
+  check('an already ended session can still be closed without input control', endedClose);
+  await refuses('an ended session cannot be claimed for input', () => command({ operation: 'claim', terminalId: opened.terminalId }), 'command_rejected');
   await command({ operation: 'open', mode: 'agent' });
   check('final positive configured-agent control starts independently', starts === 2 && sessions.at(-1)!.title === 'agent');
   const homeCommand = (payload: object, ctx = context()) => app.remoteTerminal(ctx, { terminalHome: true, ...payload }, 'command');

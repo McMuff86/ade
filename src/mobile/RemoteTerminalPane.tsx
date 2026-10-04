@@ -230,6 +230,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     if (lock.current || profileLock.current || commandLock.current) return 'busy';
     if (data && (!inputConnection.current.ready || inputConnection.current.readError)) return 'failed';
     if (pending || uncertain || draft.review || current.inputUncertain || !current.leaseId || !current.selected || !current.cols || !current.rows || current.selected.owner !== 'self' || host.status !== 'online') return 'failed';
+    // An ended session has no lease to renew; a heartbeat would only surface a refusal.
+    if (current.selected.status !== 'running') return 'failed';
     if (new TextEncoder().encode(data).length > 2048) { setError(translate("Shorten the input to a maximum of 2048 bytes.")); return 'failed'; }
     const request: MobileTerminalInput = { ...selection, terminalId: current.selected.id, leaseId: current.leaseId,
       sequence: (current.lastSequence ?? 0) + 1, data, ...(dimensions.current ?? { cols: current.cols, rows: current.rows }) };
@@ -346,6 +348,8 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     } finally { lock.current = false; if (live.current) setBusy(false); }
   };
   const owning = state.selected?.owner === 'self';
+  // Removing a session whose CLI already ended needs no input control.
+  const canEnd = owning || (!!state.selected && state.selected.status !== 'running');
   const inputEnabled = owning && !commandPending && !explicitPending && !profileOpening && host.status === 'online' && displayReady && !readError && !pending && !uncertain && !state.inputUncertain
     && (!draft.review || directSending.current) && state.selected?.status === 'running';
   const action = (operation: 'claim' | 'release' | 'close') => command({ operation, ...selection, terminalId: selected });
@@ -464,7 +468,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
         readRevision={async () => (await host.request<{ revision: string }>('/api/v1/profile/behavior/query', 'POST', { agentId: state.selected!.profileContext!.profileId })).revision} />}
       {focused && <><span role="status">{host.status !== 'online' ? translate("Offline · Last display status") : owning ? translate("Input: tablet") : translate("Input: PC / other device")}</span>
         {state.selected && <>{owning && <button disabled={commandPending || explicitPending || profileOpening || !!pending || host.status !== 'online'} onClick={() => void action('release')}>{translate("Release input")}</button>}
-          <button disabled={blocked || !owning} onClick={() => setConfirmClose(true)}>{translate("End session")}</button></>}
+          <button disabled={commandBlocked || !canEnd} onClick={() => setConfirmClose(true)}>{translate("End session")}</button></>}
         {agent && <DashboardLink agent={agent} />}</>}
     </div>
     <div className="m-terminal-tools">
@@ -518,7 +522,7 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
       <div className="m-management-actions m-terminal-keys" hidden={!(keyboardOpen || keysShown)}>
       {[[translate("Enter"), '\r'], [translate("Tab"), '\t'], [translate("Esc"), '\x1b'], [translate("Ctrl+C"), '\x03'], ['↑', '\x1b[A'], ['↓', '\x1b[B'], ['←', '\x1b[D'], ['→', '\x1b[C'], ['F2', '\x1bOQ']].map(([label, data]) =>
         <button key={label} aria-label={translate("Terminal key {{value1}}", { value1: label })} disabled={blocked || !displayReady || !!readError || draft.review || !owning || state.selected?.status !== 'running'} onPointerDown={(event) => event.preventDefault()} onClick={() => keyboard.enqueue(data!)}>{label}</button>)}</div>
-      <button className="m-terminal-end m-danger" disabled={blocked || !owning}
+      <button className="m-terminal-end m-danger" disabled={commandBlocked || !canEnd}
         onClick={(event) => { event.currentTarget.focus(); setConfirmClose(true); }}>
         {state.selected.launchMode === 'shell' ? translate("End shell") : translate("End terminal")}</button>
       </div>
@@ -533,11 +537,10 @@ export function RemoteTerminalPane({ host, agentId, repositoryId, projectWorkspa
     <p className="m-field-note">{host.status === 'online' && responseMs !== undefined && <span aria-label={translate("Terminal response time")}>{translate("PC response:")}{" "}{responseMs}{" "}{translate("ms (network and processing).")}{" "}</span>}{translate("Type into the terminal for direct input. Known access data and PC paths are hidden. After 30 seconds without connection, the input goes back to the desktop. If you come back to this terminal within 10 minutes, the tablet takes it back, unless the desktop has taken over.")}</p>
     {confirmClose && <Dialog title={translate("End terminal session")} onClose={() => setConfirmClose(false)} fallbackId={fallbackFocusId}>
       <p>{translate("The running process in this session will be terminated.")}</p><button onClick={() => setConfirmClose(false)}>{translate("Cancel")}</button>
-      {busy && <p role="status">{translate("Completing the pending terminal operation…")}</p>}
-      <button className="m-danger" disabled={blocked || !owning} onClick={() => {
-        // A heartbeat can acquire the lock before React updates the button.
-        // Keep the confirmation open instead of silently dropping its command.
-        if (lock.current || profileLock.current || blocked || !owning) return;
+      <button className="m-danger" disabled={commandBlocked || !canEnd} onClick={() => {
+        // The command reserves its place and waits for a heartbeat in flight,
+        // so the button neither moves nor disables while one passes.
+        if (profileLock.current || commandBlocked || !canEnd) return;
         setConfirmClose(false); void action('close');
       }}>{translate("Confirm termination")}</button></Dialog>}
   </section>;
